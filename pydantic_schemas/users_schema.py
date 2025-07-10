@@ -7,7 +7,7 @@ class UserBase(BaseModel): # this is the base model and its for the general user
     email : str
 
 class UserCreateRequest(UserBase): # this is for use in creating users 
-    passowrd : str
+    password : str
 
 class UserResponse(UserBase): # this  is for response models to the frontend i guess 
     created_at : datetime

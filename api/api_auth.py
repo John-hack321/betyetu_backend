@@ -51,7 +51,7 @@ async def add_user( db : db_dependancy , user : UserCreateRequest):
     db_user = await get_user_by_email(db , user.email)
     if db_user:
         raise HTTPException( status_code = status.HTTP_409_CONFLICT , detail = "email is already registered")
-    new_db_user = await create_user( db  , user = user)
+    new_db_user = await create_user( db  , user)
     # okay im being told here that after create ing the new user we are supposed to return the access token so that the user gets logged in immediately 
     token = create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes = 20))
     return {'access_token' : token , 'token_type' : 'bearer' }
