@@ -4,7 +4,7 @@ from fastapi.middleware.cors import  CORSMiddleware
 
 from db.db_setup import Base , engine
 from db.db_setup import create_database , drop_database
-from api import api_workouts , api_routines , api_auth
+from api import  api_auth
 
 app = FastAPI(
     # we will add system info here for later on 
@@ -25,5 +25,3 @@ app.add_middleware(
 )
 
 app.include_router(api_auth.router)
-app.include_router(api_workouts.router)
-app.include_router(api_routines.router)
