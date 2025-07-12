@@ -29,11 +29,11 @@ REFRESH_ALGORITHM = os.getenv('REFRESH_ALGORITHM')
 # now we are going to create some functinality for the authentication itself 
 # user auth function 
 
-async def authenticate_user(username : str , password : str , db ):
-    user = await get_user_by_username( username , db)
+async def authenticate_user(username: str, password: str, db):
+    user = await get_user_by_username(db, username)
     if not user:
         return False
-    if not bcrypt_context.verify(password , user.hashed_password):
+    if not bcrypt_context.verify(password, user.hashed_password):
         return False
     return user
 
@@ -59,6 +59,7 @@ async def add_user( db : db_dependancy , user : UserCreateRequest):
     if db_user:
         raise HTTPException( status_code = status.HTTP_409_CONFLICT , detail = "email is already registered")
     new_db_user = await create_user( db  , user)
+    print("user created successfuly")
     # okay im being told here that after create ing the new user we are supposed to return the access token so that the user gets logged in immediately 
     token = create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes = 20))
     return {'access_token' : token , 'token_type' : 'bearer' }
