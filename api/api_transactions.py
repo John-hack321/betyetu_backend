@@ -1,4 +1,3 @@
-import fastapi
 from fastapi import APIRouter, HTTPException  , status
 import os
 
@@ -112,9 +111,10 @@ async def withdrawal_request(db : db_dependancy , user : user_depencancy ,  user
 @router.get('/withdrawal/success') # this will be for successfully transactions
 async def successfull_withdrawal(db : db_dependancy , successful_respose):
   try:
+    successful_respose_data = await successful_respose.json()
     # here there is no need to check the result code or as it obviously shows that the transaction was successful 
     # i guess the  first thing that we will do is to extract the relevant data from the response and use it to update the db well this is the receipt and the ConversatonID
-    response_data = await parse_b2c_response_data(successful_respose)
+    response_data = await parse_b2c_response_data(successful_respose_data)
     result_description = response_data.get('result_description',{})
     print(f'result_description :  {result_description}')
     receipt = response_data.get('receipt' , {})
@@ -142,7 +142,7 @@ async def failed_withdrawal(db : db_dependancy , failed_response):
     updated_failed_transaction = await update_b2c_transaction(db , ConversationID , trans_status.failed , receipt = None)
     if not updated_failed_transaction:
       raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update loaded transaction from the database")
-    # for the failed withdarawal transactiion there is no need to update the account table
+    # for the failed withdarawal transaction there is no need to update the account table
 
   except Exception as e:
     logger.error(f'the failed withdaral endpoing failed withdrawal endpoing failed : {e}')
@@ -182,25 +182,3 @@ async def parse_b2c_response_data(data : dict):
     result_description = result_data.get('ResultDesc')
     ConversationID = result_data.get('ConversationID')
     return {'result_description' : result_description , 'ConversationID' : ConversationID}
-
-
-
-
-
-
-{
- "Result": {
-    "ResultType": 0,
-    "ResultCode": 2001,
-    "ResultDesc": "The initiator information is invalid.", # I can extract this transaction for error logging 
-    "OriginatorConversationID": "29112-34801843-1",
-    "ConversationID": "AG_20191219_00006c6fddb15123addf",
-    "TransactionID": "NLJ0000000",
-    "ReferenceData": {
-      "ReferenceItem": {
-          "Key": "QueueTimeoutURL",
-          "Value": "https:\/\/internalsandbox.safaricom.co.ke\/mpesa\/b2cresults\/v1\/submit"
-        }
-    }
- }
-}
