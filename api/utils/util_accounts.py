@@ -9,11 +9,9 @@ async def update_account(db : AsyncSession , account_id : int , transaction_type
     result = await db.execute(query)
     main_result = result.scalars().first()
     main_result.balance = await update_balance(balance=main_result.balance, amount=amount, transaction_type=transaction_type)
-    db.add(main_result)
     await db.commit()
     await db.refresh(main_result)
     return main_result
-
 
 async def increment_account_balance(db : AsyncSession , account_id : int , amount : int):
     query = select(Account).where(Account.id == account_id)

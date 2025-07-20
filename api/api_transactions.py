@@ -2,8 +2,9 @@ import fastapi
 from fastapi import APIRouter, HTTPException  , status
 import os
 
+from api.utils import transaction_dependancies
 from api.utils.dependancies import db_dependancy , user_depencancy
-from api.utils.util_transactions import add_transaction , create_transaction, create_withdrawal_transaction, get_transaction_and_account_data , update_transaction 
+from api.utils.util_transactions import create_transaction, create_withdrawal_transaction, get_transaction_and_account_data , update_transaction , update_b2c_transaction
 from api.utils.util_users import get_user_and_account_data
 from db.models.model_users import Transaction
 from pydantic_schemas.transaction_schemas import CreateTransaction, trans_status, trans_type
@@ -43,7 +44,7 @@ async def deposit_money(db : db_dependancy , user : user_depencancy , user_trans
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'mpesa return error string code instead of 0')
 
 @router.get('/callback')
-async def call_back_response( db : db_dependancy , mpesa_call_back_response):
+async def deposit_call_back_response( db : db_dependancy , mpesa_call_back_response):
     data = await mpesa_call_back_response.json()
     stk_data = data['Body']['stkCallBack']
     merchant_request_id = stk_data['MerchantRequestID']
@@ -58,7 +59,7 @@ async def call_back_response( db : db_dependancy , mpesa_call_back_response):
         success_db_transaction = await update_transaction(db , trans_type.deposit , merchant_request_id , receipt_number)
         if not success_db_transaction:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the transaction data")
-        updated_account = await increment_account_balance( db , success_db_transaction.account_id , success_db_transaction.amount  )
+        updated_account = await update_account( db , success_db_transaction.account_id , trans_type.deposit , success_db_transaction.amount  )
         if not updated_account:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the account data in the database")
         return {'success' : 'ok'}
@@ -94,130 +95,112 @@ async def withdrawal_request(db : db_dependancy , user : user_depencancy ,  user
     # continue with logic for adding the transaction and more 
     if response.get(ResponseCode) == '0':
       # if the response code is zero then we will create a pending transaction into the database or else we just create a failed one 
-      db_transaction = await create_withdrawal_transaction(db , user_transaction_request_data , user_and_account_data.id , user_and_account_data.account.id , trans_status.pending ,response.get(ConversationID) , ):
+      db_transaction = await create_withdrawal_transaction(db , user_transaction_request_data ,
+       user_and_account_data.id ,
+       user_and_account_data.account.id , 
+       trans_status.pending ,response.get(ConversationID) ,  
+       response.get(OriginatorConversationID))
+      if not db_transaction:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = " failed to write the transaction into the database ")
+    else : 
+      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "the status code from safaricom was an error status code")
 
   except Exception as e:
     logger.error(f'the b2c endpoint failed : {e}')
     raise RuntimeError(f'the endpoint failed')
 
-
-
-
-
-
-
-
-
-
-
 @router.get('/withdrawal/success') # this will be for successfully transactions
-async def successfull_withdrawal(db , db_dependancy):
-  ...
+async def successfull_withdrawal(db : db_dependancy , successful_respose):
+  try:
+    # here there is no need to check the result code or as it obviously shows that the transaction was successful 
+    # i guess the  first thing that we will do is to extract the relevant data from the response and use it to update the db well this is the receipt and the ConversatonID
+    response_data = await parse_b2c_response_data(successful_respose)
+    result_description = response_data.get('result_description',{})
+    print(f'result_description :  {result_description}')
+    receipt = response_data.get('receipt' , {})
+    ConversationID = response_data.get('ConversationID' , {}) # we add the empty parenthesis there so that in case of data not found it defaults to an empty dictionary instead of crashing 
+    # we will then use the conversatin id to query and update the transaction as successful 
+    updated_successful_transaction = await update_b2c_transaction(db ,ConversationID , trans_status.successfull , receipt )
+    if not updated_successful_transaction:
+      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the transaction to be succesfull ")
+    # for this succsessful transaction we have to update the account table too 
+    updated_account = await update_account(db , updated_successful_transaction.account_id , trans_type.withdrawal , updated_successful_transaction.amount )
+    if not updated_account:
+      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update laoded account table from the database")
+  
+  except Exception as e:
+    logger.error(f'the successful transactoin endpoing failed {e}')
+    raise RuntimeError(f'the successfull withdrawal endpoint failed')
 
 @router.get('/withdrawal/failed_withdrawal')
-async def failed_withdrawal(db , db_dependancy):
-  ...
+async def failed_withdrawal(db : db_dependancy , failed_response):
+  try:
+    response_data = await parse_b2c_response_data(failed_response)
+    result_description = response_data.get('result_description')
+    ConversationID = result_data.get('ConversationID')
+    # we will now use these two update the failed transaction into the database
+    updated_failed_transaction = await update_b2c_transaction(db , ConversationID , trans_status.failed , receipt = None)
+    if not updated_failed_transaction:
+      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update loaded transaction from the database")
+    # for the failed withdarawal transactiion there is no need to update the account table
+
+  except Exception as e:
+    logger.error(f'the failed withdaral endpoing failed withdrawal endpoing failed : {e}')
+    raise RuntimeError(f'there was an error on the withdrawal endpoing')
+
+async def parse_b2c_response_data(data : dict):
+  """
+  this is a utility function that parses the response data and returns usefull part so that we can use 
+  first check what transaction it is by looking at the result code if its 0 then its successful
+  for successful ones : 
+    we first extract the Conversation id 
+    we then extract the receipt in a programmatic way for safety
+    return the two in form of a dictionary
+  for failed ones : 
+    we will extract the transaction description , and the ConversationID 
+    we then return the two in form of a dictionary 
+  """
+  # to make this usable for both sides of the result url we will use if statements to sort out btween successful ones and unsuccessful ones 
+  if data['Result']['ResultCode'] == '0':
+    try:
+      ConversationID = data['Result']['ConversationID']
+      result_description = data['Result']['ResultDesc']
+      # this is a better for extracting these data points in a safe a programmatic way for the best result 
+      parameters = data['Result']['ResultParameters']['ResultParameter'] 
+      receipt = next(
+        (param['Value'] for param in parameters if param['Key'] == 'TransactionReceipt'),
+        None # if the value is not found we fall back to None
+      )
+      return {'ConversationID' : ConversationID , 'receipt' : receipt , 'result_description' : result_description}
+
+    except Exception as e:
+      logger.error(f'failed to parse the b2c response data')
+      raise RuntimeError(f'there was a problem with the data parsing logic for the result logic on ')
+
+  else :
+    result_data = data['Result']
+    result_description = result_data.get('ResultDesc')
+    ConversationID = result_data.get('ConversationID')
+    return {'result_description' : result_description , 'ConversationID' : ConversationID}
 
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-"""
-# these are the data points to help me build this system well :
-
-# this is the request body for initiating the request for the b to customer transaction 
-{    
-   "Initiator":"testapi",
-   "SecurityCredential":"IAJVUHDGj0yDU3aop/WI9oSPhkW3DVlh7EAt3iRyymTZhljpzCNnI/xFKZNooOf8PUFgjmEOihUnB24adZDOv3Ri0Citk60LgMQnib0gjsoc9WnkHmGYqGtNivWE20jyIDUtEKLlPr3snV4d/H54uwSRVcsATEQPNl5n3+EGgJFIKQzZbhxDaftMnxQNGoIHF9+77tfIFzvhYQen352F4D0SmiqQ91TbVc2Jdfx/wd4HEdTBU7S6ALWfuCCqWICHMqCnpCi+Y/ow2JRjGYHdfgmcY8pP5oyH25uQk1RpWV744aj2UROjDrxTnE7a6tDN6G/dA21MXKaIsWJT/JyyXg==",
-   "CommandID":"BusinessPayToBulk",
-   "SenderIdentifierType":"4",
-   "RecieverIdentifierType":"4",
-   "Amount":"239",
-   "PartyA":"600979",
-   "PartyB":"600000",
-   "AccountReference":"353353",
-   "Requester":"254708374149",
-   "Remarks":"OK",
-   "QueueTimeOutURL":"https://mydomain/path/timeout",
-   "ResultURL":"https://mydomain/path/result"
-}ConversationID
-
-# this is the response body for confriming receipt of the request 
 {
-    "OriginatorConversationID": "5118-111210482-1",
-    "": "AG_20230420_2010759fd5662ef6d054",
-    "ResponseCode": "0",
-    "ResponseDescription": "Accept the service request successfully."
-}
-
-
-#the response from the call back functoin 
-{    
- "Result":
- {  
-   "ResultType": "0",    
-   "ResultCode":"0",    
-   "ResultDesc": "The service request is processed successfully",    
-   "OriginatorConversationID":"626f6ddf-ab37-4650-b882-b1de92ec9aa4",    
-   "ConversationID":"12345677dfdf89099B3",    
-   "TransactionID":"QKA81LK5CY",    
-   "ResultParameters":
-     {    
-       "ResultParameter": 
-          [{
-           "Key":"DebitAccountBalance",    
-           "Value":"{Amount={CurrencyCode=KES, MinimumAmount=618683, BasicAmount=6186.83}}"
-          },
-          {
-          "Key":"Amount",    
-           "Value":"190.00"
-          },
-           {
-          "Key":"DebitPartyAffectedAccountBalance",    
-           "Value":"Working Account|KES|346568.83|6186.83|340382.00|0.00"
-          },
-           {
-          "Key":"TransCompletedTime",    
-           "Value":"20221110110717"
-          },
-           {
-          "Key":"DebitPartyCharges",    
-           "Value":""
-          },
-           {
-          "Key":"ReceiverPartyPublicName",    
-           "Value":000000– Biller Companty
-          },
-          {
-          "Key":"Currency",    
-           "Value":"KES"
-          },
-          {
-           "Key":"InitiatorAccountCurrentBalance",    
-           "Value":"{Amount={CurrencyCode=KES, MinimumAmount=618683, BasicAmount=6186.83}}"
-          }]
-       },
-     "ReferenceData":
-       {    
-        "ReferenceItem":[
-           {"Key":"BillReferenceNumber", "Value":"19008"},
-           {"Key":"QueueTimeoutURL", "Value":"https://mydomain.com/b2b/businessbuygoods/queue/"}  
-         ] 
-      }
+ "Result": {
+    "ResultType": 0,
+    "ResultCode": 2001,
+    "ResultDesc": "The initiator information is invalid.", # I can extract this transaction for error logging 
+    "OriginatorConversationID": "29112-34801843-1",
+    "ConversationID": "AG_20191219_00006c6fddb15123addf",
+    "TransactionID": "NLJ0000000",
+    "ReferenceData": {
+      "ReferenceItem": {
+          "Key": "QueueTimeoutURL",
+          "Value": "https:\/\/internalsandbox.safaricom.co.ke\/mpesa\/b2cresults\/v1\/submit"
+        }
+    }
  }
 }
-
-"""
