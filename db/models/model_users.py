@@ -1,9 +1,10 @@
-from collections import UserList
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey , Text
 from db.db_setup import Base
+
 from db.models.mixins import TimeStamp
-from pydantic_schemas.transaction_schemas import trans_type
+
+from pydantic_schemas.transaction_schemas import trans_type , trans_status
 
 # user based models go here 
 
@@ -40,8 +41,12 @@ class Transaction(TimeStamp , Base):
     id = Column(Integer , index = True , primary_key = True)
     user_id = Column(Integer , ForeignKey("users.id") , nullable = False)
     account_id = Column(Integer , ForeignKey("accounts.id") , nullable = False)
-    ammount = Column(Integer)
+    amount = Column(Integer)
     transaction_type = Column(Enum(trans_type))
+    status = Column(Enum(trans_status) , default = 2)
+    merchant_request_id = Column(String(50) , nullable = True)
+    merchant_checkout_id = Column(String(50) , nullable = True)
+    receipt_number = Column(String(50) , nullable = True , default = 'N/A')
 
     user = relationship("User" , back_populates = "transactions")
     account = relationship("Account" , back_populates = "transactions")

@@ -48,7 +48,7 @@ def create_access_token( username : str , user_id : int , expires_delta : timede
 def create_refresh_token(username : str , user_id : int , expires_delta : timedelta):
     encode = {'sub' : username , 'id' : user_id }
     expires = datetime.now(timezone.utc) + expires_delta
-    encode.updata({'exp' : expires})
+    encode.update({'exp' : expires})
     return jwt.encode(encode , SECRET_KEY , algorithm = REFRESH_ALGORITHM)
 
 # ENDPOINTS
@@ -78,7 +78,7 @@ async def login_for_access_token(
     refresh_token = create_refresh_token(user.username , user.id , timedelta(minutes=10080))
     return {
         'access_token' : access_token ,
-        'refresh_token' : refresh_token , 
+        #'refresh_token' : refresh_token , 
         'token_type' : 'bearer'
          }
 

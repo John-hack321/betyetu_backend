@@ -1,11 +1,12 @@
 # we wanna create our first utility function for creating  a user here now 
+from locale import currency
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from pydantic_schemas.users_schema import UserCreateRequest
-from db.models.model_users import User
+from db.models.model_users import Account, User
 from api.utils.dependancies import bcrypt_context
 
 
@@ -18,9 +19,20 @@ async def create_user(db : AsyncSession , user : UserCreateRequest):
         hashed_password = bcrypt_context.hash(user.password)
     )
     db.add(db_user)
+    await db.flush() # this allows us to get the user_id before commiting to the database
+
+    user_account_db = Account(
+        user_id = db_user.id,
+        balance = 0,
+        currency = 'KES',
+    )
+
+    db.add(user_account_db)
+    
     await db.commit()
     await db.refresh(db_user)
-    print("table refreshed successfuly")
+    await db.refresh(user_account_db)
+    print("user and account created succesfully")
     return db_user
 
 async def get_user_by_id(db : AsyncSession , user_id : int):
@@ -39,6 +51,9 @@ async def get_user_by_email(db: AsyncSession, email: str):
     return result.scalars().first()
 
 async def get_user_and_account_data(db: AsyncSession, user_id: int):
+    print("starting the get current user and account data util function now")
     query = select(User).options(selectinload(User.account)).where(User.id == user_id)
+    print("query ran succesfully")
     result = await db.execute(query)
+    print("now sending data to endpoint")
     return result.scalars().first()
