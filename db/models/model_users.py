@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey , Text
 from db.db_setup import Base
@@ -46,7 +47,10 @@ class Transaction(TimeStamp , Base):
     status = Column(Enum(trans_status) , default = 2)
     merchant_request_id = Column(String(50) , nullable = True)
     merchant_checkout_id = Column(String(50) , nullable = True)
-    receipt_number = Column(String(50) , nullable = True , default = 'N/A')
+    receipt_number = Column(String(50) , nullable = True , default = None)
+    ConversationID = Column(String(50) , nullable = True , default = None)
+    OriginatorConversationID = Column(String(50) , nullable = True , default = None)
+
 
     user = relationship("User" , back_populates = "transactions")
     account = relationship("Account" , back_populates = "transactions")

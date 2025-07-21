@@ -134,6 +134,7 @@ async def successfull_withdrawal(db : db_dependancy , successful_respose):
 
 @router.get('/withdrawal/failed_withdrawal')
 async def failed_withdrawal(db : db_dependancy , failed_response):
+  failed_response_data = await failed_response.json()
   try:
     response_data = await parse_b2c_response_data(failed_response)
     result_description = response_data.get('result_description')
