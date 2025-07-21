@@ -13,10 +13,13 @@ from services.mpesa_services.mpesa_stk_push import  create_stk_push
 from services.mpesa_services.mpesa_b2c_push import B2CPaymentService
 
 from dotenv import load_dotenv
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix = "/transactions", 
-    tags = ['transaction']
+    tags = ['transactions']
 )
 
 load_dotenv()
@@ -29,7 +32,7 @@ async def deposit_money(db : db_dependancy , user : user_depencancy , user_trans
     user_and_account_data = await get_user_and_account_data(db , user_id)
     # we first have to do the stk push to the user to initiate the transaction so that we record what we are sure of inot the database
     # we put it here so that we can utilize the user data from the database from the databae
-    test_phone = '254708374149'
+    test_phone = '254724027231'
     mpesa_response = await create_stk_push(MPESA_PASS_KEY , MPESA_STK_URL ,test_phone, user_transaction_request_data.amount)
     print(mpesa_response.json())
     mpesa_response = mpesa_response.json()
@@ -44,28 +47,32 @@ async def deposit_money(db : db_dependancy , user : user_depencancy , user_trans
 
 @router.get('/callback')
 async def deposit_call_back_response( db : db_dependancy , mpesa_call_back_response):
-    data = await mpesa_call_back_response.json()
-    stk_data = data['Body']['stkCallBack']
-    merchant_request_id = stk_data['MerchantRequestID']
-    checkout_request_id = stk_data['CheckoutRequestID']
-    # extraction of recipt number from the request body
-    metadata = stk_data.get('CallbackMetadata' , {}).get('item' , [])
-    receipt_number = next( # these to thingies here are carefull extraction of the recipt by carefuly traversing the json object
-      (item['value'] for item in metadata if item['name'] == 'MpesaReceiptNumber'),
-      None
-    )
-    if stk_data['ResultCode'] == '0':
-        success_db_transaction = await update_transaction(db , trans_type.deposit , merchant_request_id , receipt_number)
-        if not success_db_transaction:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the transaction data")
-        updated_account = await update_account( db , success_db_transaction.account_id , trans_type.deposit , success_db_transaction.amount  )
-        if not updated_account:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the account data in the database")
-        return {'success' : 'ok'}
-    else :
-        failed_transaction = update_transaction( db , 0 , merchant_request_id , receipt_number = 'N/A' )
-        if not failed_transaction:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'failed to put failed transaction into databaes')
+  # i will add a few print statements to tyr and find out whats not working and what is working
+  data = await mpesa_call_back_response
+  print(f'this is the raw data from safaricom {data}')
+  data = data.json()
+  print(f'here is the data now converted to json format {data}')
+  stk_data = data['Body']['stkCallBack']
+  merchant_request_id = stk_data['MerchantRequestID']
+  checkout_request_id = stk_data['CheckoutRequestID']
+  # extraction of recipt number from the request body
+  metadata = stk_data.get('CallbackMetadata' , {}).get('Item' , []) # fixed a bug on this line
+  receipt_number = next( # these to thingies here are carefull extraction of the recipt by carefuly traversing the json object
+    (item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'),
+    None
+  )
+  if stk_data['ResultCode'] == '0':
+      success_db_transaction = await update_transaction(db , trans_type.deposit , merchant_request_id , receipt_number)
+      if not success_db_transaction:
+          raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the transaction data")
+      updated_account = await update_account( db , success_db_transaction.account_id , trans_type.deposit , success_db_transaction.amount  )
+      if not updated_account:
+          raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the account data in the database")
+      return {'success' : 'ok'}
+  else :
+      failed_transaction = update_transaction( db , 0 , merchant_request_id , receipt_number = 'N/A' )
+      if not failed_transaction:
+          raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'failed to put failed transaction into databaes')
 
 # now we will build this another endpoint for checking if transactio went to completion in order to updatet the frontend
 @router.get('/check_deposit_status')
@@ -84,23 +91,24 @@ async def check_deposit_status(db : db_dependancy , user : user_depencancy , che
 async def withdrawal_request(db : db_dependancy , user : user_depencancy ,  user_transaction_request_data : CreateTransaction):
   try:
     #query user and account data 
-    user_and_account_data = await get_user_and_account_data(db , user.get(user_di))
+    user_and_account_data = await get_user_and_account_data(db , user.get('user_id'))
     if not user_and_account_data:
       raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to load user and account data from the database")
     # in production env we will use user_and_account_data.phone instead of test_phone
-    test_phone = '254708374149' # this is the test phone that we use for the sandbox environemt 
+    test_phone = '254724027231' # this is the test phone that we use for the sandbox environemt 
     b2c_instance = B2CPaymentService()
     response = await b2c_instance.send_b2c_request(user_transaction_request_data.amount , test_phone)
     # continue with logic for adding the transaction and more 
     if response.get(ResponseCode) == '0':
+      ...
       # if the response code is zero then we will create a pending transaction into the database or else we just create a failed one 
-      db_transaction = await create_withdrawal_transaction(db , user_transaction_request_data ,
-       user_and_account_data.id ,
-       user_and_account_data.account.id , 
-       trans_status.pending ,response.get(ConversationID) ,  
-       response.get(OriginatorConversationID))
-      if not db_transaction:
-        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = " failed to write the transaction into the database ")
+     # db_transaction = await create_withdrawal_transaction(db , user_transaction_request_data ,
+     #  user_and_account_data.id ,
+     #  user_and_account_data.account.id , 
+     #  trans_status.pending ,response.get(ConversationID) ,  
+     #  response.get(OriginatorConversationID))
+     # if not db_transaction:
+     #   raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = " failed to write the transaction into the database ")
     else : 
       raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "the status code from safaricom was an error status code")
 
@@ -124,7 +132,7 @@ async def successfull_withdrawal(db : db_dependancy , successful_respose):
     if not updated_successful_transaction:
       raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the transaction to be succesfull ")
     # for this succsessful transaction we have to update the account table too 
-    updated_account = await update_account(db , updated_successful_transaction.account_id , trans_type.withdrawal , updated_successful_transaction.amount )
+    # updated_account = await update_account(db , updated_successful_transaction.account_id , trans_type.withdrawal , updated_successful_transaction.amount )
     if not updated_account:
       raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update laoded account table from the database")
   
@@ -132,7 +140,7 @@ async def successfull_withdrawal(db : db_dependancy , successful_respose):
     logger.error(f'the successful transactoin endpoing failed {e}')
     raise RuntimeError(f'the successfull withdrawal endpoint failed')
 
-@router.get('/withdrawal/failed_withdrawal')
+@router.get('/withdrawal/failed') # this is for the timeouts / failed transactions from mpesa
 async def failed_withdrawal(db : db_dependancy , failed_response):
   failed_response_data = await failed_response.json()
   try:
@@ -140,6 +148,7 @@ async def failed_withdrawal(db : db_dependancy , failed_response):
     result_description = response_data.get('result_description')
     ConversationID = result_data.get('ConversationID')
     # we will now use these two update the failed transaction into the database
+    print(f'there was enror and transaction could not go through becauese : {result_description}')
     updated_failed_transaction = await update_b2c_transaction(db , ConversationID , trans_status.failed , receipt = None)
     if not updated_failed_transaction:
       raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update loaded transaction from the database")
