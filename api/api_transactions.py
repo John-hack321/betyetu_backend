@@ -102,13 +102,13 @@ async def withdrawal_request(db : db_dependancy , user : user_depencancy ,  user
     if response.get(ResponseCode) == '0':
       ...
       # if the response code is zero then we will create a pending transaction into the database or else we just create a failed one 
-     # db_transaction = await create_withdrawal_transaction(db , user_transaction_request_data ,
-     #  user_and_account_data.id ,
-     #  user_and_account_data.account.id , 
-     #  trans_status.pending ,response.get(ConversationID) ,  
-     #  response.get(OriginatorConversationID))
-     # if not db_transaction:
-     #   raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = " failed to write the transaction into the database ")
+      db_transaction = await create_withdrawal_transaction(db , user_transaction_request_data ,
+       user_and_account_data.id ,
+       user_and_account_data.account.id , 
+       trans_status.pending ,response.get(ConversationID) ,  
+       response.get(OriginatorConversationID))
+      if not db_transaction:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = " failed to write the transaction into the database ")
     else : 
       raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "the status code from safaricom was an error status code")
 
@@ -144,7 +144,7 @@ async def successfull_withdrawal(db : db_dependancy , successful_respose):
 async def failed_withdrawal(db : db_dependancy , failed_response):
   failed_response_data = await failed_response.json()
   try:
-    response_data = await parse_b2c_response_data(failed_response)
+    response_data = await parse_b2c_response_data(failed_response_data)
     result_description = response_data.get('result_description')
     ConversationID = result_data.get('ConversationID')
     # we will now use these two update the failed transaction into the database
@@ -184,7 +184,7 @@ async def parse_b2c_response_data(data : dict):
       return {'ConversationID' : ConversationID , 'receipt' : receipt , 'result_description' : result_description}
 
     except Exception as e:
-      logger.error(f'failed to parse the b2c response data')
+      logger.error(f'failed to parse the b2c response data {e}')
       raise RuntimeError(f'there was a problem with the data parsing logic for the result logic on ')
 
   else :

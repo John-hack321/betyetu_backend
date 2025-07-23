@@ -1,6 +1,9 @@
 import os
 import requests
 import base64
+import aiohttp
+import asyncio
+import httpx
 
 from dotenv import load_dotenv
 from cryptography.hazmat.primitives import serialization
@@ -68,9 +71,9 @@ class B2CPaymentService:
               "Content-Type": "application/json"
           }
 
-          response = requests.post(self.request_url, json=payload, headers=headers)
-          return response.json()
-
+          async with httpx.AsyncClient() as client:
+              response = await client.post(self.request_url , json=payload , headers=headers)
+              return response.json()
       except Exception as e:
         logger.error(f'falied t send the b2c request : {e}')
         raise RuntimeError(f'the b2c request failed')
