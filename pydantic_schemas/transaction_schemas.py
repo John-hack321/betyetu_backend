@@ -1,4 +1,3 @@
-from sqlalchemy import Enum 
 import enum
 from pydantic import BaseModel
 

@@ -1,21 +1,25 @@
 from datetime import timedelta , datetime , timezone
 from typing import Annotated
 import os
+from typing_extensions import runtime
 
 from fastapi import Depends , HTTPException , status , APIRouter
 from pydantic import BaseModel 
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from starlette.status import HTTP_400_BAD_REQUEST
+import logging
 
 from api.utils.dependancies import bcrypt_context
 from dotenv import load_dotenv
 from api.utils.dependancies import ALGORITHM, SECRET_KEY, bcrypt_context , db_dependancy , refresh_user_dependancy
 from db.models.model_users import User
+from fast_api.services.chess_services.chess_playsers import ChessPlayerService
 from pydantic_schemas.users_schema import Token , UserCreateRequest
 from api.utils.util_users import create_user , get_user_by_username , get_user_by_email
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix = '/auth',
@@ -55,9 +59,22 @@ def create_refresh_token(username : str , user_id : int , expires_delta : timede
 #this endpoint is for creating a new user to the database and the system 
 @router.post('/' , status_code = status.HTTP_201_CREATED)
 async def add_user( db : db_dependancy , user : UserCreateRequest):
+    """
+    fetch database to confirm that user is not duplicate by confirming the email
+    fetch chess.com database to confirm validility of account
+    if valid create both user profle and chess profile for the user 
+    create a new user with the created credentials
+    """
     db_user = await get_user_by_email(db , user.email)
     if db_user:
         raise HTTPException( status_code = status.HTTP_409_CONFLICT , detail = "email is already registered")
+    # fech user data to confirm validility of the account on chess.com
+    chess_service_instance = ChessPlayerService(user.chess_username)
+    try : 
+        user_chess_data = chess_service_instance.fetch_user_data_on_signup() # error handing for the response is already done in the chessprofileservice itself 
+    except Exception as e:
+        logger.error(f'the chessprofile service failed {e}')
+        raise RuntimeError(f'the chess service failed')
     new_db_user = await create_user( db  , user)
     print("user created successfuly")
     # okay im being told here that after create ing the new user we are supposed to return the access token so that the user gets logged in immediately 
