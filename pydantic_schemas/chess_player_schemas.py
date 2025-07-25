@@ -4,7 +4,7 @@ import enum
 
 # enums to support some data types
 class country_code(enum.IntEnum):
-    Kenya = 254
+    KE = 254
 
 class account_status_code(enum.IntEnum):
     basic = 1

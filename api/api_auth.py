@@ -75,6 +75,7 @@ async def add_user( db : db_dependancy , user : UserCreateRequest):
     except Exception as e:
         logger.error(f'the chessprofile service failed {e}')
         raise RuntimeError(f'the chess service failed')
+    
     new_db_user = await create_user( db  , user)
     print("user created successfuly")
     # okay im being told here that after create ing the new user we are supposed to return the access token so that the user gets logged in immediately 
