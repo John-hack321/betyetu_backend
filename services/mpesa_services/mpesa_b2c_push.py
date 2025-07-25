@@ -71,9 +71,11 @@ class B2CPaymentService:
               "Content-Type": "application/json"
           }
 
-          async with httpx.AsyncClient() as client:
-              response = await client.post(self.request_url , json=payload , headers=headers)
-              return response.json()
+          async with aiohttp.ClientSession(headers = headers) as session:
+            async with session.post(self.request_url , json = payload) as response:
+                response_data = await response.json()
+                return response_data
+                
       except Exception as e:
         logger.error(f'falied t send the b2c request : {e}')
         raise RuntimeError(f'the b2c request failed')

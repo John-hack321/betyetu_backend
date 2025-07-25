@@ -5,7 +5,6 @@ import os
 import logging
 
 from dotenv import load_dotenv
-from urllib3.util import parse_url
 
 from fast_api.pydantic_schemas.chess_player_schemas import country_code
 
@@ -57,7 +56,7 @@ class ChessPlayerService:
                     raise RuntimeError(f'the parse_country_var function failed')
             chess_data['country'] = parse_country_var(chess_data['country'])
             return chess_data
-            
+
         except Exception as e:
             print(f'ther was na error parsing the repsonse data => detail : {str(e)}')
             raise RuntimeError('the parse_chess_response_data_funcion failed')
