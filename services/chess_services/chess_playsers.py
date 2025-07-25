@@ -6,7 +6,7 @@ import logging
 
 from dotenv import load_dotenv
 
-from fast_api.pydantic_schemas.chess_player_schemas import country_code
+from pydantic_schemas.chess_player_schemas import country_code
 
 logger = logging.getLogger(__name__)
 load_dotenv()

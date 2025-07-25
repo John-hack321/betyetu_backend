@@ -33,12 +33,11 @@ async def deposit_money(db : db_dependancy , user : user_depencancy , user_trans
     # we first have to do the stk push to the user to initiate the transaction so that we record what we are sure of inot the database
     # we put it here so that we can utilize the user data from the database from the databae
     test_phone = '254724027231'
-    mpesa_response = await create_stk_push(MPESA_PASS_KEY , MPESA_STK_URL ,test_phone, user_transaction_request_data.amount)
-    print(mpesa_response.json())
-    mpesa_response = mpesa_response.json()
+    mpesa_response_data = await create_stk_push(MPESA_PASS_KEY , MPESA_STK_URL ,test_phone, user_transaction_request_data.amount)
+    print(mpesa_response_data)
     # we will check the response code if it is 0 we will create the transaction if not we will raise http error exception 
-    if mpesa_response['ResponseCode'] == '0' :
-        db_new_transaction = await create_transaction(db , user_transaction_request_data , user_id , user_and_account_data.account.id , 1 , mpesa_response['MerchantRequestID'] , mpesa_response['CheckoutRequestID'] )
+    if mpesa_response_data.get('ResponseCode') == '0' :
+        db_new_transaction = await create_transaction(db , user_transaction_request_data , user_id , user_and_account_data.account.id , 1 , mpesa_response_data['MerchantRequestID'] , mpesa_response_data['CheckoutRequestID'] )
         if not db_new_transaction:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to create the new transaction on stk push")
         return {'check_out_id' : db_new_transaction.merchant_checkout_id}
@@ -46,33 +45,64 @@ async def deposit_money(db : db_dependancy , user : user_depencancy , user_trans
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'mpesa return error string code instead of 0')
 
 @router.get('/callback')
-async def deposit_call_back_response( db : db_dependancy , mpesa_call_back_response):
-  # i will add a few print statements to tyr and find out whats not working and what is working
-  data = await mpesa_call_back_response
-  print(f'this is the raw data from safaricom {data}')
-  data = data.json()
-  print(f'here is the data now converted to json format {data}')
-  stk_data = data['Body']['stkCallBack']
-  merchant_request_id = stk_data['MerchantRequestID']
-  checkout_request_id = stk_data['CheckoutRequestID']
-  # extraction of recipt number from the request body
-  metadata = stk_data.get('CallbackMetadata' , {}).get('Item' , []) # fixed a bug on this line
-  receipt_number = next( # these to thingies here are carefull extraction of the recipt by carefuly traversing the json object
-    (item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'),
-    None
-  )
-  if stk_data['ResultCode'] == '0':
-      success_db_transaction = await update_transaction(db , trans_type.deposit , merchant_request_id , receipt_number)
-      if not success_db_transaction:
-          raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the transaction data")
-      updated_account = await update_account( db , success_db_transaction.account_id , trans_type.deposit , success_db_transaction.amount  )
-      if not updated_account:
-          raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the account data in the database")
-      return {'success' : 'ok'}
-  else :
-      failed_transaction = update_transaction( db , 0 , merchant_request_id , receipt_number = 'N/A' )
-      if not failed_transaction:
-          raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'failed to put failed transaction into databaes')
+async def deposit_call_back_response(db: db_dependancy, mpesa_call_back_response):
+    data = await mpesa_call_back_response.json()
+    print(f"Raw callback data: {data}")
+
+    stk_data = data.get("Body", {}).get("stkCallback", {})
+    merchant_request_id = stk_data.get("MerchantRequestID")
+    checkout_request_id = stk_data.get("CheckoutRequestID")
+    result_code = stk_data.get("ResultCode")
+
+    metadata = stk_data.get("CallbackMetadata", {}).get("Item", [])
+    receipt_number = next(
+        (item.get("Value") for item in metadata if item.get("Name") == "MpesaReceiptNumber"),
+        None
+    )
+
+    if result_code == 0:
+        success_db_transaction = await update_transaction(db, trans_type.deposit, merchant_request_id, receipt_number)
+        if not success_db_transaction:
+            raise HTTPException(status_code=500, detail="Failed to update transaction")
+        updated_account = await update_account(db, success_db_transaction.account_id, trans_type.deposit, success_db_transaction.amount)
+        if not updated_account:
+            raise HTTPException(status_code=500, detail="Failed to update account")
+        return {"success": "ok"}
+    else:
+        failed_transaction = await update_transaction(db, 0, merchant_request_id, receipt_number="N/A")
+        if not failed_transaction:
+            raise HTTPException(status_code=500, detail="Failed to log failed transaction")
+        return {"error": "Transaction failed"}
+"""
+{    
+   "Body": {        
+      "stkCallback": {            
+         "MerchantRequestID": "29115-34620561-1",            
+         "CheckoutRequestID": "ws_CO_191220191020363925",            
+         "ResultCode": 0,            
+         "ResultDesc": "The service request is processed successfully.",            
+         "CallbackMetadata": {                
+            "Item": [{                        
+               "Name": "Amount",                        
+               "Value": 1.00                    
+            },                    
+            {                        
+               "Name": "MpesaReceiptNumber",                        
+               "Value": "NLJ7RT61SV"                    
+            },                    
+            {                        
+               "Name": "TransactionDate",                        
+               "Value": 20191219102115                    
+            },                    
+            {                        
+               "Name": "PhoneNumber",                        
+               "Value": 254708374149                    
+            }]            
+         }        
+      }    
+   }
+}
+"""
 
 # now we will build this another endpoint for checking if transactio went to completion in order to updatet the frontend
 @router.get('/check_deposit_status')
