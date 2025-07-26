@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException  , status
+from fastapi import APIRouter, HTTPException  , status , Request
 import os
 
 from api.utils import transaction_dependancies
@@ -44,66 +44,88 @@ async def deposit_money(db : db_dependancy , user : user_depencancy , user_trans
     else :
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'mpesa return error string code instead of 0')
 
-@router.get('/callback')
-async def deposit_call_back_response(db: db_dependancy, mpesa_call_back_response):
-    data = await mpesa_call_back_response.json()
-    print(f"Raw callback data: {data}")
+@router.post('/callback')  # Changed to POST
+async def deposit_call_back_response(db: db_dependancy, request: Request):
+    try:
+        data = await request.json()
+        print(f"Raw callback data: {data}")
 
-    stk_data = data.get("Body", {}).get("stkCallback", {})
-    merchant_request_id = stk_data.get("MerchantRequestID")
-    checkout_request_id = stk_data.get("CheckoutRequestID")
-    result_code = stk_data.get("ResultCode")
+        # Extract callback data safely
+        stk_callback = data.get("Body", {}).get("stkCallback", {})
+        if not stk_callback:
+            logger.error("No stkCallback found in request body")
+            return {"error": "Invalid callback format"}
 
-    metadata = stk_data.get("CallbackMetadata", {}).get("Item", [])
-    receipt_number = next(
-        (item.get("Value") for item in metadata if item.get("Name") == "MpesaReceiptNumber"),
-        None
-    )
+        merchant_request_id = stk_callback.get("MerchantRequestID")
+        checkout_request_id = stk_callback.get("CheckoutRequestID")
+        result_code = stk_callback.get("ResultCode")
 
-    if result_code == 0:
-        success_db_transaction = await update_transaction(db, trans_type.deposit, merchant_request_id, receipt_number)
-        if not success_db_transaction:
-            raise HTTPException(status_code=500, detail="Failed to update transaction")
-        updated_account = await update_account(db, success_db_transaction.account_id, trans_type.deposit, success_db_transaction.amount)
-        if not updated_account:
-            raise HTTPException(status_code=500, detail="Failed to update account")
-        return {"success": "ok"}
-    else:
-        failed_transaction = await update_transaction(db, 0, merchant_request_id, receipt_number="N/A")
-        if not failed_transaction:
-            raise HTTPException(status_code=500, detail="Failed to log failed transaction")
-        return {"error": "Transaction failed"}
-"""
-{    
-   "Body": {        
-      "stkCallback": {            
-         "MerchantRequestID": "29115-34620561-1",            
-         "CheckoutRequestID": "ws_CO_191220191020363925",            
-         "ResultCode": 0,            
-         "ResultDesc": "The service request is processed successfully.",            
-         "CallbackMetadata": {                
-            "Item": [{                        
-               "Name": "Amount",                        
-               "Value": 1.00                    
-            },                    
-            {                        
-               "Name": "MpesaReceiptNumber",                        
-               "Value": "NLJ7RT61SV"                    
-            },                    
-            {                        
-               "Name": "TransactionDate",                        
-               "Value": 20191219102115                    
-            },                    
-            {                        
-               "Name": "PhoneNumber",                        
-               "Value": 254708374149                    
-            }]            
-         }        
-      }    
-   }
-}
-"""
+        if not merchant_request_id:
+            logger.error("No MerchantRequestID found in callback")
+            return {"error": "Missing MerchantRequestID"}
 
+        # Extract receipt number safely
+        callback_metadata = stk_callback.get("CallbackMetadata", {})
+        metadata_items = callback_metadata.get("Item", [])
+        
+        receipt_number = None
+        for item in metadata_items:
+            if item.get("Name") == "MpesaReceiptNumber":
+                receipt_number = item.get("Value")
+                break
+
+        print(f"Processing callback - MerchantRequestID: {merchant_request_id}, ResultCode: {result_code}, Receipt: {receipt_number}")
+
+        if result_code == 0:  # Success
+            if not receipt_number:
+                logger.error(f"Successful transaction but no receipt number found for {merchant_request_id}")
+                receipt_number = "MISSING_RECEIPT"
+            
+            # Update transaction as successful
+            success_db_transaction = await update_transaction(
+                db, 
+                trans_status.successfull,  # Fixed: use trans_status not trans_type
+                merchant_request_id, 
+                receipt_number
+            )
+            
+            if not success_db_transaction:
+                logger.error(f"Failed to update transaction {merchant_request_id}")
+                raise HTTPException(status_code=500, detail="Failed to update transaction")
+            
+            # Update account balance
+            updated_account = await update_account(
+                db, 
+                success_db_transaction.account_id, 
+                trans_type.deposit, 
+                success_db_transaction.amount
+            )
+            
+            if not updated_account:
+                logger.error(f"Failed to update account for transaction {merchant_request_id}")
+                raise HTTPException(status_code=500, detail="Failed to update account")
+            
+            logger.info(f"Transaction {merchant_request_id} processed successfully with receipt {receipt_number}")
+            return {"success": "ok"}
+            
+        else:  # Failed transaction
+            logger.info(f"Transaction {merchant_request_id} failed with result code {result_code}")
+            failed_transaction = await update_transaction(
+                db, 
+                trans_status.failed,  # Fixed: use trans_status
+                merchant_request_id, 
+                "FAILED_TRANSACTION"
+            )
+            
+            if not failed_transaction:
+                logger.error(f"Failed to log failed transaction {merchant_request_id}")
+                raise HTTPException(status_code=500, detail="Failed to log failed transaction")
+            
+            return {"error": "Transaction failed"}
+
+    except Exception as e:
+        logger.error(f"Callback processing failed: {str(e)}", exc_info=True)
+        return {"error": "Callback processing failed"}
 # now we will build this another endpoint for checking if transactio went to completion in order to updatet the frontend
 @router.get('/check_deposit_status')
 async def check_deposit_status(db : db_dependancy , user : user_depencancy , checkout_id : str):

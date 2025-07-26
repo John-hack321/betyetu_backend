@@ -46,7 +46,7 @@ async def get_current_transaction(db : AsyncSession , merchant_request_id : str)
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
-async def update_transaction(db : AsyncSession , status : trans_type , merchant_request_id : str , receipt_number : str):
+async def update_transaction(db : AsyncSession , status : trans_status , merchant_request_id : str , receipt_number : str):
     """search for the transaction using merchant checkout id 
         we will then update it to read either successfull or failed based n the status input 
     """
