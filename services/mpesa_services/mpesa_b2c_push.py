@@ -1,9 +1,7 @@
 import os
-import requests
 import base64
 import aiohttp
-import asyncio
-import httpx
+import logging
 
 from dotenv import load_dotenv
 from cryptography.hazmat.primitives import serialization
@@ -12,6 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from services.mpesa_services.mpesa_stk_push import MpesaTokenManager
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 class B2CPaymentService:

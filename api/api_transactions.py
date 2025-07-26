@@ -1,3 +1,4 @@
+from aiohttp import http_exceptions
 from fastapi import APIRouter, HTTPException  , status , Request
 import os
 
@@ -37,7 +38,7 @@ async def deposit_money(db : db_dependancy , user : user_depencancy , user_trans
     print(mpesa_response_data)
     # we will check the response code if it is 0 we will create the transaction if not we will raise http error exception 
     if mpesa_response_data.get('ResponseCode') == '0' :
-        db_new_transaction = await create_transaction(db , user_transaction_request_data , user_id , user_and_account_data.account.id , 1 , mpesa_response_data['MerchantRequestID'] , mpesa_response_data['CheckoutRequestID'] )
+        db_new_transaction = await create_transaction(db , user_transaction_request_data , user_id , user_and_account_data.account.id , trans_status.pending , mpesa_response_data['MerchantRequestID'] , mpesa_response_data['CheckoutRequestID'] )
         if not db_new_transaction:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to create the new transaction on stk push")
         return {'check_out_id' : db_new_transaction.merchant_checkout_id}
@@ -150,25 +151,30 @@ async def withdrawal_request(db : db_dependancy , user : user_depencancy ,  user
     test_phone = '254724027231' # this is the test phone that we use for the sandbox environemt 
     b2c_instance = B2CPaymentService()
     response = await b2c_instance.send_b2c_request(user_transaction_request_data.amount , test_phone)
+
+    if not response :
+      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "the b2c request failed")
+
     # continue with logic for adding the transaction and more 
-    if response.get(ResponseCode) == '0':
-      ...
+    if response.get('ResponseCode') == '0':
       # if the response code is zero then we will create a pending transaction into the database or else we just create a failed one 
+      print(f'raw response data : {response}')
       db_transaction = await create_withdrawal_transaction(db , user_transaction_request_data ,
        user_and_account_data.id ,
        user_and_account_data.account.id , 
-       trans_status.pending ,response.get(ConversationID) ,  
-       response.get(OriginatorConversationID))
+       trans_status.pending ,response.get('ConversationID') ,  
+       response.get('OriginatorConversationID'))
       if not db_transaction:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = " failed to write the transaction into the database ")
     else : 
-      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "the status code from safaricom was an error status code")
+      print(f'failed transaction response data : {response}')
+      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = f"there was an error of status code : {response.get('ResponseCode')} from safarciom")
 
   except Exception as e:
     logger.error(f'the b2c endpoint failed : {e}')
     raise RuntimeError(f'the endpoint failed')
 
-@router.get('/withdrawal/success') # this will be for successfully transactions
+@router.post('/withdrawal/success') # this will be for successfully transactions
 async def successfull_withdrawal(db : db_dependancy , successful_respose):
   try:
     successful_respose_data = await successful_respose.json()
