@@ -175,12 +175,12 @@ async def withdrawal_request(db : db_dependancy , user : user_depencancy ,  user
     raise RuntimeError(f'the endpoint failed')
 
 @router.post('/withdrawal/success') # this will be for successfully transactions
-async def successfull_withdrawal(db : db_dependancy , successful_respose):
+async def successfull_withdrawal(db : db_dependancy , successful_respose : Request):
   try:
-    successful_respose_data = await successful_respose.json()
+    successful_response_data = await successful_respose.json()
     # here there is no need to check the result code or as it obviously shows that the transaction was successful 
     # i guess the  first thing that we will do is to extract the relevant data from the response and use it to update the db well this is the receipt and the ConversatonID
-    response_data = await parse_b2c_response_data(successful_respose_data)
+    response_data = await parse_b2c_response_data(successful_response_data)
     result_description = response_data.get('result_description',{})
     print(f'result_description :  {result_description}')
     receipt = response_data.get('receipt' , {})
@@ -190,7 +190,7 @@ async def successfull_withdrawal(db : db_dependancy , successful_respose):
     if not updated_successful_transaction:
       raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the transaction to be succesfull ")
     # for this succsessful transaction we have to update the account table too 
-    # updated_account = await update_account(db , updated_successful_transaction.account_id , trans_type.withdrawal , updated_successful_transaction.amount )
+    updated_account = await update_account(db , updated_successful_transaction.account_id , trans_type.withdrawal , updated_successful_transaction.amount )
     if not updated_account:
       raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update laoded account table from the database")
   
