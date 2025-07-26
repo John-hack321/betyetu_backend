@@ -26,21 +26,39 @@ class B2CPaymentService:
         self.token_manager = MpesaTokenManager()
 
     async def generate_security_credential(self):
-      try:
-        with open(self.cert_path, "rb") as cert_file:
-            cert_data = cert_file.read()
-            public_key = serialization.load_pem_public_key(cert_data)
+        try:
+            with open(self.cert_path, "rb") as cert_file:
+                cert_data = cert_file.read()
+                
+            # Try to decode as PEM first
+            try:
+                public_key = serialization.load_pem_public_key(cert_data)
+            except ValueError:
+                # If PEM fails, try to process as raw base64 certificate
+                try:
+                    # Remove any whitespace and decode base64
+                    cert_content = cert_data.decode().strip()
+                    
+                    # Add PEM headers if they're missing
+                    if not cert_content.startswith("-----BEGIN"):
+                        cert_content = f"-----BEGIN CERTIFICATE-----\n{cert_content}\n-----END CERTIFICATE-----"
+                    
+                    public_key = serialization.load_pem_public_key(cert_content.encode())
+                except Exception as e:
+                    logger.error(f"Failed to load certificate in any format: {e}")
+                    raise ValueError(f"Unable to load certificate: {e}")
 
-        encrypted = public_key.encrypt(
-            self.initiator_password.encode(),
-            padding.PKCS1v15()
-        )
+            # Encrypt the password
+            encrypted = public_key.encrypt(
+                self.initiator_password.encode(),
+                padding.PKCS1v15()
+            )
 
-        return base64.b64encode(encrypted).decode()
-        
-      except Exception as e:
-        logger.error(f'Security credentail encryption failed : {e}')
-        raise RuntimeError('failed to genereate security credentail')
+            return base64.b64encode(encrypted).decode()
+            
+        except Exception as e:
+            logger.error(f'Security credential encryption failed: {e}')
+            raise RuntimeError('Failed to generate security credential')
 
     async def build_payload(self, amount: int, recipient_phone: str):
         security_credential = await self.generate_security_credential()

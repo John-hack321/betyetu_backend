@@ -140,82 +140,170 @@ async def check_deposit_status(db : db_dependancy , user : user_depencancy , che
   
 # endpoints for withdrawal will now go down here : 
 
-@router.post('/withdrawal') # this will be the endpoint initialting the withdrawal request as initiated by the user : 
-async def withdrawal_request(db : db_dependancy , user : user_depencancy ,  user_transaction_request_data : CreateTransaction):
-  try:
-    #query user and account data 
-    user_and_account_data = await get_user_and_account_data(db , user.get('user_id'))
-    if not user_and_account_data:
-      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to load user and account data from the database")
-    # in production env we will use user_and_account_data.phone instead of test_phone
-    test_phone = '254724027231' # this is the test phone that we use for the sandbox environemt 
-    b2c_instance = B2CPaymentService()
-    response = await b2c_instance.send_b2c_request(user_transaction_request_data.amount , test_phone)
+@router.post('/withdrawal')
+async def withdrawal_request(
+    db: db_dependancy, 
+    user: user_depencancy, 
+    user_transaction_request_data: CreateTransaction
+):
+    """Initiate withdrawal request"""
+    try:
+        user_id = user.get('user_id')
+        
+        # Get user and account data
+        user_and_account_data = await get_user_and_account_data(db, user_id)
+        if not user_and_account_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="User account not found"
+            )
+        
+        # Check if user has sufficient balance
+        if user_and_account_data.account.balance < user_transaction_request_data.amount:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Insufficient balance for withdrawal"
+            )
+        
+        # Minimum withdrawal check
+        if user_transaction_request_data.amount < 10:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Minimum withdrawal amount is 10 KES"
+            )
+        
+        # In production, use user_and_account_data.phone
+        test_phone = '254724027231'
+        
+        # Send B2C request
+        b2c_instance = B2CPaymentService()
+        response = await b2c_instance.send_b2c_request(
+            user_transaction_request_data.amount, 
+            test_phone
+        )
+        
+        if response.get('ResponseCode') == '0':
+            # Create pending transaction
+            db_transaction = await create_withdrawal_transaction(
+                db, 
+                user_transaction_request_data,
+                user_and_account_data.id,
+                user_and_account_data.account.id, 
+                trans_status.pending,
+                response.get('ConversationID'),  
+                response.get('OriginatorConversationID')
+            )
+            
+            if not db_transaction:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                    detail="Failed to create transaction record"
+                )
+            
+            return {
+                'message': 'Withdrawal request submitted successfully',
+                'conversation_id': response.get('ConversationID'),
+                'status': 'pending'
+            }
+        else:
+            # Log the failed response
+            logger.error(f'B2C request failed: {response}')
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Withdrawal request failed: {response.get('ResponseDescription', 'Unknown error')}"
+            )
 
-    if not response :
-      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "the b2c request failed")
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f'Withdrawal endpoint failed: {e}', exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during withdrawal processing"
+        )
+@router.post('/withdrawal/result')
+async def withdrawal_result_callback(db: db_dependancy, request: Request):
+    """
+    Handles successful and failed B2C transaction results
+    """
+    try:
+        data = await request.json()
+        logger.info(f"B2C Result callback: {data}")
+        
+        result = data.get('Result', {})
+        conversation_id = result.get('ConversationID')
+        result_code = result.get('ResultCode')
+        result_description = result.get('ResultDesc', '')
+        
+        if not conversation_id:
+            logger.error("No ConversationID in result callback")
+            return {"error": "Invalid callback format"}
+        
+        if result_code == 0:  # Success
+            # Extract receipt
+            parameters = result.get('ResultParameters', {}).get('ResultParameter', [])
+            receipt = next(
+                (param['Value'] for param in parameters if param['Key'] == 'TransactionReceipt'),
+                None
+            )
+            
+            # Update as successful
+            updated_transaction = await update_b2c_transaction(
+                db, conversation_id, trans_status.successfull, receipt
+            )
+            
+            # Update account balance
+            await update_account(
+                db, updated_transaction.account_id, 
+                trans_type.withdrawal, updated_transaction.amount
+            )
+            
+            logger.info(f"Withdrawal {conversation_id} completed successfully")
+            return {"success": "Transaction completed"}
+            
+        else:  # Failed but processed
+            # Update as failed
+            await update_b2c_transaction(
+                db, conversation_id, trans_status.failed, None
+            )
+            
+            logger.info(f"Withdrawal {conversation_id} failed: {result_description}")
+            return {"error": f"Transaction failed: {result_description}"}
+            
+    except Exception as e:
+        logger.error(f"Result callback processing failed: {e}", exc_info=True)
+        return {"error": "Callback processing failed"}
 
-    # continue with logic for adding the transaction and more 
-    if response.get('ResponseCode') == '0':
-      # if the response code is zero then we will create a pending transaction into the database or else we just create a failed one 
-      print(f'raw response data : {response}')
-      db_transaction = await create_withdrawal_transaction(db , user_transaction_request_data ,
-       user_and_account_data.id ,
-       user_and_account_data.account.id , 
-       trans_status.pending ,response.get('ConversationID') ,  
-       response.get('OriginatorConversationID'))
-      if not db_transaction:
-        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = " failed to write the transaction into the database ")
-    else : 
-      print(f'failed transaction response data : {response}')
-      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = f"there was an error of status code : {response.get('ResponseCode')} from safarciom")
 
-  except Exception as e:
-    logger.error(f'the b2c endpoint failed : {e}')
-    raise RuntimeError(f'the endpoint failed')
-
-@router.post('/withdrawal/success') # this will be for successfully transactions
-async def successfull_withdrawal(db : db_dependancy , successful_respose : Request):
-  try:
-    successful_response_data = await successful_respose.json()
-    # here there is no need to check the result code or as it obviously shows that the transaction was successful 
-    # i guess the  first thing that we will do is to extract the relevant data from the response and use it to update the db well this is the receipt and the ConversatonID
-    response_data = await parse_b2c_response_data(successful_response_data)
-    result_description = response_data.get('result_description',{})
-    print(f'result_description :  {result_description}')
-    receipt = response_data.get('receipt' , {})
-    ConversationID = response_data.get('ConversationID' , {}) # we add the empty parenthesis there so that in case of data not found it defaults to an empty dictionary instead of crashing 
-    # we will then use the conversatin id to query and update the transaction as successful 
-    updated_successful_transaction = await update_b2c_transaction(db ,ConversationID , trans_status.successfull , receipt )
-    if not updated_successful_transaction:
-      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update the transaction to be succesfull ")
-    # for this succsessful transaction we have to update the account table too 
-    updated_account = await update_account(db , updated_successful_transaction.account_id , trans_type.withdrawal , updated_successful_transaction.amount )
-    if not updated_account:
-      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update laoded account table from the database")
-  
-  except Exception as e:
-    logger.error(f'the successful transactoin endpoing failed {e}')
-    raise RuntimeError(f'the successfull withdrawal endpoint failed')
-
-@router.get('/withdrawal/failed') # this is for the timeouts / failed transactions from mpesa
-async def failed_withdrawal(db : db_dependancy , failed_response):
-  failed_response_data = await failed_response.json()
-  try:
-    response_data = await parse_b2c_response_data(failed_response_data)
-    result_description = response_data.get('result_description')
-    ConversationID = result_data.get('ConversationID')
-    # we will now use these two update the failed transaction into the database
-    print(f'there was enror and transaction could not go through becauese : {result_description}')
-    updated_failed_transaction = await update_b2c_transaction(db , ConversationID , trans_status.failed , receipt = None)
-    if not updated_failed_transaction:
-      raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to update loaded transaction from the database")
-    # for the failed withdarawal transaction there is no need to update the account table
-
-  except Exception as e:
-    logger.error(f'the failed withdaral endpoing failed withdrawal endpoing failed : {e}')
-    raise RuntimeError(f'there was an error on the withdrawal endpoing')
-
+@router.post('/withdrawal/timeout')
+async def withdrawal_timeout_callback(db: db_dependancy, request: Request):
+    """
+    Handles B2C transaction timeouts and system failures
+    """
+    try:
+        data = await request.json()
+        logger.info(f"B2C Timeout callback: {data}")
+        
+        result = data.get('Result', {})
+        conversation_id = result.get('ConversationID')
+        result_description = result.get('ResultDesc', 'Transaction timed out')
+        
+        if not conversation_id:
+            logger.error("No ConversationID in timeout callback")
+            return {"error": "Invalid callback format"}
+        
+        # Update transaction as failed due to timeout
+        await update_b2c_transaction(
+            db, conversation_id, trans_status.failed, None
+        )
+        
+        logger.info(f"Withdrawal {conversation_id} timed out: {result_description}")
+        return {"error": f"Transaction timed out: {result_description}"}
+        
+    except Exception as e:
+        logger.error(f"Timeout callback processing failed: {e}", exc_info=True)
+        return {"error": "Timeout callback processing failed"}
 async def parse_b2c_response_data(data : dict):
   """
   this is a utility function that parses the response data and returns usefull part so that we can use 
