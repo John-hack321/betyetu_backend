@@ -127,6 +127,7 @@ async def deposit_call_back_response(db: db_dependancy, request: Request):
     except Exception as e:
         logger.error(f"Callback processing failed: {str(e)}", exc_info=True)
         return {"error": "Callback processing failed"}
+
 # now we will build this another endpoint for checking if transactio went to completion in order to updatet the frontend
 @router.get('/check_deposit_status')
 async def check_deposit_status(db : db_dependancy , user : user_depencancy , checkout_id : str):
@@ -141,11 +142,7 @@ async def check_deposit_status(db : db_dependancy , user : user_depencancy , che
 # endpoints for withdrawal will now go down here : 
 
 @router.post('/withdrawal')
-async def withdrawal_request(
-    db: db_dependancy, 
-    user: user_depencancy, 
-    user_transaction_request_data: CreateTransaction
-):
+async def withdrawal_request(db: db_dependancy, user: user_depencancy, user_transaction_request_data: CreateTransaction):
     """Initiate withdrawal request"""
     try:
         user_id = user.get('user_id')
