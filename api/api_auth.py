@@ -17,6 +17,7 @@ from db.models.model_users import User
 from services.chess_services.chess_playsers import ChessPlayerService
 from pydantic_schemas.users_schema import Token , UserCreateRequest
 from api.utils.util_users import create_user , get_user_by_username , get_user_by_email
+from api.utils.util_chess_players import add_new_chess_player
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -43,13 +44,13 @@ async def authenticate_user(username: str, password: str, db):
 
 # now lets build another function for generating the authentication token 
 
-def create_access_token( username : str , user_id : int , expires_delta : timedelta ):
+async def create_access_token( username : str , user_id : int , expires_delta : timedelta ):
     encode = {'sub' : username , 'id' : user_id}
     expires = datetime.now(timezone.utc) + expires_delta
     encode.update({'exp' : expires})
     return jwt.encode(encode , SECRET_KEY , algorithm = ALGORITHM) # and just like that we will have created the access token 
 
-def create_refresh_token(username : str , user_id : int , expires_delta : timedelta):
+async def create_refresh_token(username : str , user_id : int , expires_delta : timedelta):
     encode = {'sub' : username , 'id' : user_id }
     expires = datetime.now(timezone.utc) + expires_delta
     encode.update({'exp' : expires})
@@ -69,22 +70,30 @@ async def add_user( db : db_dependancy , user : UserCreateRequest):
     if db_user:
         raise HTTPException( status_code = status.HTTP_409_CONFLICT , detail = "email is already registered")
     # fech user data to confirm validility of the account on chess.com
-    chess_service_instance = ChessPlayerService(user.chess_username)
-    try : 
-        user_chess_data = chess_service_instance.fetch_user_data_on_signup() # error handing for the response is already done in the chessprofileservice itself 
-    except Exception as e:
-        logger.error(f'the chessprofile service failed {e}')
-        raise RuntimeError(f'the chess service failed')
-    
+    if user.chess_username :
+        try : 
+            chess_service_instance = ChessPlayerService(user.chess_username)
+            user_chess_data = await chess_service_instance.fetch_user_profile_data() # error handing for the response is already done in the chessprofileservice itself 
+            # after fetching the chess user data the next step is to add the data to the database of which we have down down here after the creating a new user to the database
+        except Exception as e:
+            logger.error(f'the chessprofile service failed {e}')
+            raise RuntimeError(f'the chess service failed')
+    else :
+        print(f'no chess username was provided thus no need to add fetch chess user data')
+        
     new_db_user = await create_user( db  , user)
+    # after creating a new user we then create a new chess.com profile data
+    # to differentiate between chess.com and native chess data we will use foreign and native keywords
+    new_db_chess_profile_foreign = await add_new_chess_player(user_chess_data) # antherw way to do this would have been to create the chess user directly from the util side but its still okay here
+    if not new_db_chess_profile_foreign :
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = f"there was an error creating new chess profile database object : {new_db_chess_profile_foreign}")
     print("user created successfuly")
     # okay im being told here that after create ing the new user we are supposed to return the access token so that the user gets logged in immediately 
-    token = create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes = 20))
+    token = await create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes = 20))
     return {'access_token' : token , 'token_type' : 'bearer' }
     # return new_db_user we ctherefor obstruc this since we are not returning it to the backend 
 
 # lets create another endpoint for getting the access token and sedning it back to the user
-
 @router.post('/token' , response_model = Token , status_code = status.HTTP_201_CREATED)
 async def login_for_access_token( 
     form_data : Annotated[OAuth2PasswordRequestForm , Depends()] , # this oauth2 thingy here is just a way for us to get login details by following th estandard for auth , its better than just sendin the raw json data : username : str and password : str 
@@ -92,8 +101,8 @@ async def login_for_access_token(
     user = await authenticate_user(form_data.username , form_data.password , db )
     if not user:
         raise HTTPException( status_code =status.HTTP_401_UNAUTHORIZED , detail = " could not authorize the user ")
-    access_token = create_access_token(user.username , user.id , timedelta(minutes = 20))
-    refresh_token = create_refresh_token(user.username , user.id , timedelta(minutes=10080))
+    access_token = await create_access_token(user.username , user.id , timedelta(minutes = 20))
+    refresh_token = await create_refresh_token(user.username , user.id , timedelta(minutes=10080))
     return {
         'access_token' : access_token ,
         #'refresh_token' : refresh_token , 

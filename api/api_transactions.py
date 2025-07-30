@@ -301,6 +301,7 @@ async def withdrawal_timeout_callback(db: db_dependancy, request: Request):
     except Exception as e:
         logger.error(f"Timeout callback processing failed: {e}", exc_info=True)
         return {"error": "Timeout callback processing failed"}
+        
 async def parse_b2c_response_data(data : dict):
   """
   this is a utility function that parses the response data and returns usefull part so that we can use 

@@ -1,5 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel 
 from datetime import datetime
+from typing import Optional
+
 
 # defining the user model in fastapi for effective user management
 class UserBase(BaseModel): # this is the base model and its for the general user user defintion 
@@ -10,8 +12,7 @@ class UserBase(BaseModel): # this is the base model and its for the general user
 class UserCreateRequest(UserBase): # this is for use in creating users 
     # for this one we would need user entered data such as username , email , phone , password 
     password : str
-    chess_username : str
-
+    chess_username : Optional[str] = None
 
 class UserResponse(UserBase): # this is the general model for response models to the frontend i guess 
     created_at : datetime

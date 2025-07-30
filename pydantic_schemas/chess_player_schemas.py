@@ -12,7 +12,7 @@ class account_status_code(enum.IntEnum):
 class ChessProfileBase(BaseModel):
     chess_username : str
 
-class ChessProfileGeneral(ChessProfileBase):
+class CreateChessDbProfile(ChessProfileBase): # this is for adding a new chess profile to the database
     user_id : int
     player_id : int
     followers : int
@@ -21,7 +21,7 @@ class ChessProfileGeneral(ChessProfileBase):
     account_verification_status : bool
     league : str
 
-class UserDataReturnType(ChessProfileGeneral):
+class UserDataReturnType(CreateChessDbProfile):
     ...
 
 class ChessProfileSchema(BaseModel):
