@@ -7,24 +7,29 @@ from db.db_setup import Base
 from db.models.model_chess_users import ChessProfile
 from pydantic_schemas.chess_player_schemas import CreateChessDbProfile
 
-async def add_new_chess_player(db : AsyncSession , user_chess_data : CreateChessDbProfile , user_id):
+async def add_new_chess_player(db: AsyncSession, user_chess_data: dict, user_id: int):
+    """
+    Creates a new chess player profile from dictionary data returned by the chess service
+    """
+    # Convert dictionary data to the format expected by the database model
     new_chess_data = ChessProfile(
-        user_id = user_id,
-        player_id = user_chess_data.player_id,
-        chess_username =  user_chess_data.chess_username,
-        followers = user_chess_data.followers,
-        country = user_chess_data.country,
-        account_status = user_chess_data.account_status,
-        account_verification_status = user_chess_data.account_verification_status,
-        league =user_chess_data.league
+        user_id=user_id,
+        player_id=user_chess_data.get('player_id'),
+        chess_username=user_chess_data.get('chess_username'),
+        followers=user_chess_data.get('followers', 0),
+        country=user_chess_data.get('country'),
+        account_status=account_status_code.basic,  # Default to basic
+        account_verification_status=user_chess_data.get('account_verification_status', False),
+        league=user_chess_data.get('league', 'wood')
     )
+    
     db.add(new_chess_data)
     await db.commit()
     await db.refresh(new_chess_data)
     return new_chess_data
 
 
-async def get_user_by_chess_foreign_username(db : AsyncSession , username : str):
-    query = select(ChessProfile).where(ChessProfile.username == username)
+async def get_user_by_chess_foreign_username(db: AsyncSession, username: str):
+    query = select(ChessProfile).where(ChessProfile.chess_username == username)  # Fixed: use chess_username instead of username
     result = await db.execute(query)
     return result.scalar_one_or_none()

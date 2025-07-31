@@ -64,36 +64,36 @@ async def get_user_chess_data(user : user_depencancy, db : db_dependancy , usern
     }
 
 @router.get('/add_foreign_chess_data')
-async def add_foreign_chess_data(db : db_dependancy , user : user_depencancy , username : str):
+async def add_foreign_chess_data(db: db_dependancy, user: user_depencancy, username: str):
     user_id = user.get('user_id')
-    try :
+    try:
         chess_player_instance = ChessPlayerService(username)
         chess_foreign_profile_data = await chess_player_instance.fetch_user_profile_data()
+        
         if not chess_foreign_profile_data:
-            raise RuntimeError(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = f"the data object from the che chess sevice was invalid {chess_foreign_profile_data}")
-        new_db_chess_profile_foreign = await add_new_chess_player(db , chess_foreign_profile_data , user_id)
-        """
-        chess_data = await chess_player_instance.fetch_user_profile_data()
-        if not chess_data:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-                             detail=f"The data object from the chess service was invalid: {chess_data}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail=f"The data object from the chess service was invalid: {chess_foreign_profile_data}"
+            )
         
-        # Convert dictionary to Pydantic model
-        chess_profile = CreateChessDbProfile(
-            user_id=user_id,
-            player_id=chess_data['player_id'],
-            chess_username=chess_data['username'],
-            followers=chess_data.get('followers', 0),
-            country=chess_data.get('country', 254),  # Default to Kenya
-            account_status=account_status_code.basic.value,
-            account_verification_status=chess_data.get('verified', False),
-            league=chess_data.get('league', '')
-        )
+        # The chess service now returns a dictionary, so we can pass it directly
+        new_db_chess_profile_foreign = await add_new_chess_player(db, chess_foreign_profile_data, user_id)
         
-        new_db_chess_profile_foreign = await add_new_chess_player(db, chess_profile, user_id)
-        """
         if not new_db_chess_profile_foreign:
-            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'failed to add the profile data to the database')
-    except Exception as e :
-        logger.error(f'there was an error running the chessplayer service {str(e)}')
-        raise RuntimeError('fhe chessprofile service failed')
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail='Failed to add the profile data to the database'
+            )
+            
+        return {
+            'message': 'Chess profile added successfully',
+            'player_id': new_db_chess_profile_foreign.player_id,
+            'username': new_db_chess_profile_foreign.chess_username
+        }
+        
+    except Exception as e:
+        logger.error(f'There was an error running the chessplayer service: {str(e)}')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='The chess profile service failed'
+        )
