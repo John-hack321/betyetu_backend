@@ -88,11 +88,11 @@ async def add_foreign_chess_data(db: db_dependancy, user: user_depencancy, usern
         return {
             'message': 'Chess profile added successfully',
             'player_id': new_db_chess_profile_foreign.player_id,
-            'username': new_db_chess_profile_foreign.chess_username
+            'chess.com_username': new_db_chess_profile_foreign.username,
         }
         
     except Exception as e:
-        logger.error(f'There was an error running the chessplayer service: {str(e)}')
+        logger.error(f'There was an error running the chessplayer service: ?? {str(e)}')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail='The chess profile service failed'

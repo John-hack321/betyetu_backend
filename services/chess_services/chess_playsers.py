@@ -76,12 +76,17 @@ class ChessPlayerService:
                 parsed_data.get['country'] = country_code.KE  # Default fallback to Kenya
             
             # after parsing the courtry variable of the json object we will now parse the account status to the required version too
+            """
+            just like in the coutry code one : 
+            check if account_status exists first 
+            if it exists parse the variable to the desired enum type 
+            if it does not exist we will default to the default enum type which is basic
+            """
             if parsed_data.get('account_status') :
                 parsed_data['account_status'] = await parse_account_status(parsed_data.get('account_status'))
             else :
                 parsed_data['account_status'] = account_status_code.basic # default to the basic one 
 
-            
             # for debuggin purposes i will print the parsed data in order to see its sctructure to ensure we have  a solid json structure            
             print(f'parsing of the data from chess.com was successful as seen : {parsed_data}')
             return parsed_data
