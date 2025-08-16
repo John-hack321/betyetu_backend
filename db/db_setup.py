@@ -8,9 +8,11 @@ from typing import AsyncGenerator
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv('.env') # common testing a general variables
+load_dotenv('.env.prod' , override=True) # similer prod variables will overide the local ones
 
-SQL_ALCHEMY_DATABASE_URL = os.getenv('DATABASE_URL')
+# changin the database url to the production database now
+SQL_ALCHEMY_DATABASE_URL = os.getenv('PROD_DATABASE_URL')
 
 # These lines are not that important they are general fastapi setup code 
 engine = create_async_engine( SQL_ALCHEMY_DATABASE_URL )
