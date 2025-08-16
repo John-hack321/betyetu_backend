@@ -1,11 +1,17 @@
 import asyncio
+import os
 from logging.config import fileConfig
+from dotenv import load_dotenv
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+
+# Load environment variables from .env and .env.prod
+load_dotenv('.env')
+load_dotenv('.env.prod', override=True)
 
 # Import your models here so Alembic can detect them
 from db.db_setup import Base
@@ -81,6 +87,13 @@ async def run_async_migrations() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
+    # Get database URL from environment variables
+    database_url = os.getenv("PROD_DATABASE_URL")
+    if not database_url:
+        raise ValueError("PROD_DATABASE_URL environment variable not set")
+
+    # Update the configuration with the database URL
+    config.set_main_option('sqlalchemy.url', database_url)
 
     asyncio.run(run_async_migrations())
 
