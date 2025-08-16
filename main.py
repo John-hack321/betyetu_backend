@@ -35,6 +35,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_headers=['*'],
     allow_methods=['*'],
+    expose_headers=['*'],
 )
 
 app.include_router(api_auth.router)

@@ -3,7 +3,7 @@ from typing import Annotated
 import os
 from typing_extensions import runtime
 
-from fastapi import Depends , HTTPException , status , APIRouter
+from fastapi import Depends , HTTPException, Request , status , APIRouter
 from pydantic import BaseModel 
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
@@ -57,15 +57,45 @@ async def create_refresh_token(username : str , user_id : int , expires_delta : 
     return jwt.encode(encode , SECRET_KEY , algorithm = REFRESH_ALGORITHM)
 
 # ENDPOINTS
+
+@router.options("/", status_code=200)
+async def options_auth():
+    return {"message": "OK"}
+
+
 #this endpoint is for creating a new user to the database and the system 
+@router.post('/' , status_code = status.HTTP_201_CREATED)
+async def add_user(db : db_dependancy , user : UserCreateRequest , request : Request) :
+    print(f'request header : {dict(request.headers)}')
+    print(f'request body : {await request.body()}')
+
+    # extract some useful data
+    #username = user.get('username')
+    #email = user.get('email')
+
+    # check if the use is in the database
+    db_user = await get_user_by_email(db , user.email)
+    if db_user :
+        raise HTTPException(status_code = status.HTTP_409_CONFLICT , detail = "email is already in use" )
+    new_db_user = await create_user(db , user)
+    if not new_db_user :
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'failed to create a new db user')
+    print(f'the user {new_db_user.username} has been created succesfuly')
+    token = await create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes = 20))
+    print(f'access token {token} created successfuly')
+    return {'access_token' : token , 'token_type' : 'bearer' }
+    
+"""
 @router.post('/' , status_code = status.HTTP_201_CREATED)
 async def add_user( db : db_dependancy , user : UserCreateRequest):
     """
+"""
     fetch database to confirm that user is not duplicate by confirming the email
     fetch chess.com database to confirm validility of account
     if valid create both user profle and chess profile for the user 
     create a new user with the created credentials
     """
+"""
     db_user = await get_user_by_email(db , user.email)
     if db_user:
         raise HTTPException( status_code = status.HTTP_409_CONFLICT , detail = "email is already registered")
@@ -92,6 +122,7 @@ async def add_user( db : db_dependancy , user : UserCreateRequest):
     token = await create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes = 20))
     return {'access_token' : token , 'token_type' : 'bearer' }
     # return new_db_user we ctherefor obstruc this since we are not returning it to the backend 
+"""
 
 # lets create another endpoint for getting the access token and sedning it back to the user
 @router.post('/token' , response_model = Token , status_code = status.HTTP_201_CREATED)
