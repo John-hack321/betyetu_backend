@@ -129,7 +129,7 @@ async def add_user( db : db_dependancy , user : UserCreateRequest):
 @router.post('/token' , response_model = Token , status_code = status.HTTP_201_CREATED)
 async def login_for_access_token( 
     form_data : Annotated[OAuth2PasswordRequestForm , Depends()] , # this oauth2 thingy here is just a way for us to get login details by following th estandard for auth , its better than just sendin the raw json data : username : str and password : str 
-    db : db_dependancy ):
+    db : db_dependancy , request : Request):
     user = await authenticate_user(form_data.username , form_data.password , db )
     if not user:
         raise HTTPException( status_code =status.HTTP_401_UNAUTHORIZED , detail = " could not authorize the user ")
