@@ -64,6 +64,7 @@ async def options_auth():
 
 
 #this endpoint is for creating a new user to the database and the system 
+@router.post('', status_code=status.HTTP_201_CREATED) # we are doing this to make this endpont accept requests with or without the trailing slash
 @router.post('/' , status_code = status.HTTP_201_CREATED)
 async def add_user(db : db_dependancy , user : UserCreateRequest , request : Request) :
     print(f'request header : {dict(request.headers)}')

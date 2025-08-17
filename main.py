@@ -31,7 +31,7 @@ async def startup_event():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=['*'], # for now we will accept all origins the modify later on
     allow_credentials=True,
     allow_headers=['*'],
     allow_methods=['*'],
