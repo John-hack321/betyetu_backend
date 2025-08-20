@@ -2,6 +2,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*/__pycache__/
+*/*/__pycache__/
+*/*/*/__pycache__/
+*/*/*/*/__pycache__/
 *.so
 .Python
 build/
@@ -229,3 +234,9 @@ out/
 # Token files
 token.json
 *.token.json
+
+# certificates
+certificates/
+
+# python cache
+__pycache__/
