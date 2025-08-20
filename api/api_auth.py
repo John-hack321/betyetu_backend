@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
 from starlette.status import HTTP_400_BAD_REQUEST
-import logging
+import logging # logging for errors
 
 from api.utils.dependancies import bcrypt_context
 from dotenv import load_dotenv
