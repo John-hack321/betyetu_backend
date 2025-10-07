@@ -15,7 +15,7 @@ load_dotenv('.env.prod', override=True)
 
 # Import your models here so Alembic can detect them
 from db.db_setup import Base
-from db.models.model_users import User, Account, Transaction , ChessProfile # Import all models
+from db.models.model_users import User, Account, Transaction # Import all models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
