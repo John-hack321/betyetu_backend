@@ -14,7 +14,7 @@ class League(TimeStamp , Base):
     name = Column(String, nullable=False)
     localized_name = Column(String, nullable=False)
     logo_url = Column(String, nullable=False)
-    added = Column(Boolean, default=False)
+    fixture_added = Column(Boolean, default=False)
 
 class PopularLeague(Timestamp , Base):
     __tablename__ = "popular_leagues"
@@ -23,4 +23,4 @@ class PopularLeague(Timestamp , Base):
     name = Column(String, nullable=False)
     localized_name = Column(String, nullable=False)
     logo_url = Column(String, nullable=False)
-    added = Column(Boolean, default=False)
+    fixture_added = Column(Boolean, default=False)

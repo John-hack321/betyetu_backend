@@ -13,7 +13,8 @@ async def add_league_to_db(db : AsyncSession, league_data : LeagueBaseModel):
         id = league_data.id,
         name = league_data.name,
         localized_name = league_data.localized_name,
-        logo_url = league_data.logo_url
+        logo_url = league_data.logo_url,
+        fixture_added = False
     )
 
     db.add(db_league)

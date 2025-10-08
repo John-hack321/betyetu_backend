@@ -5,3 +5,4 @@ class LeagueBaseModel(BaseModel):
     name : str
     localized_name : str
     logo_url : str
+    fixture_added : bool

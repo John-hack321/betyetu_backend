@@ -16,5 +16,5 @@ class Fixture(Base , TimeStamp):
     match_date= Column(DateTime, nullable=False)
     is_played= Column(Boolean, nullable=False, default=False)
     outcome= Column(String, nullabe=True)
-    home_score= Column(String, nullable=True)
-    away_score= Column(String, nullable=True)
+    home_score= Column(String, default='0')
+    away_score= Column(String, default='0')

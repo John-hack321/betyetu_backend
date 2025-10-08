@@ -1,0 +1,7 @@
+left off:
+makeing the parsing service for the league fixtures data
+
+next steps : 
+find a way to parse the data appropriately for compatibility with the database object 
+make pydantic schema for the fixture objects being added to the database
+write database utilities for adding the fixutres to the databse
