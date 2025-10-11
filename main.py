@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from db.db_setup import Base , engine
 from db.db_setup import create_database , drop_database
 from api import  api_auth , api_users , api_transactions
+from api.admin_routes.admin_apis import leagues
 
 app = FastAPI(
     # we will add system info here for later on 
@@ -41,3 +42,4 @@ app.add_middleware(
 app.include_router(api_auth.router)
 app.include_router(api_users.router)
 app.include_router(api_transactions.router)
+app.include_router(leagues.router)

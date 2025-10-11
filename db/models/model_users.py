@@ -18,6 +18,7 @@ class User( TimeStamp , Base): # this base here is the declarative instance obje
 
     account = relationship("Account" , uselist = False ,back_populates = "user")
     transactions = relationship("Transaction" , back_populates = "user")
+    # reminder : uselist is at flase for the account relationship because its is a one to one relationship yet for most relationships in sqlalchemy they are asumed to be one to many relationships
 
 # account based models go here
 

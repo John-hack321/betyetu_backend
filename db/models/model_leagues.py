@@ -16,6 +16,8 @@ class League(TimeStamp , Base):
     logo_url = Column(String, nullable=False)
     fixture_added = Column(Boolean, default=False)
 
+    fixtures= relationship('Fixture', back_populates="league") # this is a one to many relationship so there is no need of setting uselist to false
+
 class PopularLeague(Timestamp , Base):
     __tablename__ = "popular_leagues"
 
