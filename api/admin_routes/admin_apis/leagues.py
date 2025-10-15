@@ -110,7 +110,7 @@ async def add_league_fixtures_to_database(db : db_dependancy , league_id : int):
 
 
 # utility function for the league endpoints
-async def make_league_a_popular_league(db : AsyncSession , league_id):
+async def make_league_a_popular_league(db : AsyncSession , league_id : int):
     db_league_object = await get_league_by_id_from_db(db, league_id)
     if not db_league_object:
         logger.error(f'object returned from db was not expeced : {db_league_object}')
