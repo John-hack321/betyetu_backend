@@ -31,6 +31,6 @@ class Stake(Base, TimeStamp):
     stake_status= Column(Enum(StakeStatus), nullable=False, default=StakeStatus.pending)
     winner= Column(Enum(StakeWinner), nullable=True)
 
-    user = relationship("User", back_populates='stakes', foreign_keys=[user_id])
-    invited_user = relationship("User", back_populates='stakes', foreign_keys=[invited_user_id])
+    user = relationship("User", back_populates='stakes_owned', foreign_keys=[user_id])
+    invited_user = relationship("User", back_populates='stakes_invited', foreign_keys=[invited_user_id])
     match = relationship("Fixture", back_populates='stakes')

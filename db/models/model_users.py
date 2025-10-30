@@ -19,8 +19,8 @@ class User( TimeStamp , Base): # this base here is the declarative instance obje
 
     account = relationship("Account" , uselist = False ,back_populates = "user")
     transactions = relationship("Transaction" , back_populates = "user")
-    stakes= relationship("Stakes", back_populates='user')
-    stakes= relationship("Stakes", back_populates='invited_user')
+    stakes_owned = relationship("Stake", back_populates='user', foreign_keys='Stake.user_id')
+    stakes_invited = relationship("Stake", back_populates='invited_user', foreign_keys='Stake.invited_user_id')
 
     # reminder : uselist is at flase for the account relationship because its is a one to one relationship yet for most relationships in sqlalchemy they are asumed to be one to many relationships
 
