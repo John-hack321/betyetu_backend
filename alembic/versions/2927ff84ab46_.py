@@ -24,10 +24,12 @@ def upgrade() -> None:
     op.alter_column('fixtures', 'home_score',
                existing_type=sa.VARCHAR(),
                type_=sa.Integer(),
+               postgresql_using='home_score::integer',
                existing_nullable=True)
     op.alter_column('fixtures', 'away_score',
                existing_type=sa.VARCHAR(),
                type_=sa.Integer(),
+               postgresql_using='away_score::integer',
                existing_nullable=True)
     op.add_column('popular_leagues', sa.Column('created_at', sa.DateTime(), nullable=False))
     op.add_column('popular_leagues', sa.Column('updated_at', sa.DateTime(), nullable=False))

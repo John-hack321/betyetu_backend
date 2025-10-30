@@ -21,4 +21,4 @@ class Fixture(Base , TimeStamp):
     away_score= Column(Integer, default=0)
 
     league= relationship("League" , back_populates="fixtures")
-    stakes= relationship('Stakes', back_populates="fixture")
+    stakes = relationship('Stake', back_populates="match")

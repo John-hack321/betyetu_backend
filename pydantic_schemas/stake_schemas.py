@@ -7,13 +7,15 @@ import enum
 
 from db.db_setup import Base
 
-class StakeWinner(enum.IntEnum):
-    owner: 1
-    guest: 2
+from enum import Enum
 
-class StakeStatus(enum.IntEnum):
-    successfull: 1
-    pending: 0
+class StakeWinner(str, Enum):
+    owner = "owner"
+    guest = "guest"
+
+class StakeStatus(str, Enum):
+    successful = "successful"
+    pending = "pending"
 
 
 
