@@ -1,11 +1,9 @@
 from asyncio import mixins
-from sqlite3.dbapi2 import Timestamp
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey , Text, false
+from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey , Text
 
 from db.db_setup import Base
 from db.models.mixins import TimeStamp
-
 
 class League(TimeStamp , Base):
     __tablename__ = "leagues"
@@ -18,7 +16,7 @@ class League(TimeStamp , Base):
 
     fixtures= relationship('Fixture', back_populates="league") # this is a one to many relationship so there is no need of setting uselist to false
 
-class PopularLeague(Timestamp , Base):
+class PopularLeague(TimeStamp , Base):
     __tablename__ = "popular_leagues"
 
     id = Column(Integer, nullable=False, primary_key=True)

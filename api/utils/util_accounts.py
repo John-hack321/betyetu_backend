@@ -21,3 +21,19 @@ async def increment_account_balance(db : AsyncSession , account_id : int , amoun
     await db.commit()
     await db.refresh(actual_result)
     return actual_result
+
+async def get_account_data_by_user_id(user_id: int, db : AsyncSession):
+    query= select(Account).where(Account.user_id== user_id)
+    result= await db.execute(query)
+    return result.scalars().first()
+
+
+async def subtract_stake_amount_from_db(db: AsyncSession, user_id: int, stake_amount: int):
+    query= select(Account).where(Account.user_id == user_id)
+    result= await db.execute(query)
+    db_object= result.scalars().first()
+    db_object.balance= db_object.balance- stake_amount
+    await db.commit()
+    await db.refresh(db_object)
+    return db_object
+    

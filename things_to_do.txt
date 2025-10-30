@@ -1,6 +1,25 @@
-left off:
-debugging to cut off a few errors
+short but lazy things that i need to do before i forget:
+    learn and find out if im doing error handling the right way 
+    find an extension for taking short notes on vscode and windsurf 
+    find a way for returning the time the db_object was created at well ( either craate a new column for data of creation of rind a way to use the already created_at column already present)
 
-next steps : 
-desing the systems pagination design and how the data will be viewed on the frontend
-fix the bugs in the new league and fixtures sevices that i have just created
+
+big things that need to be done 
+    find a way to sort the stakes data before sending back to the frontend
+
+
+code red things that need critical fixing 
+    fix the database alembic versioning issues with regards to Stake model and other modles soon to come
+    optimize the stakes endpoint to make it more time effeicient and less resource intensive
+
+
+
+
+
+
+
+
+// this completed things list will be put here as a way of showing myslef that im making progress
+completed stuff : 
+
+1. on the fetch_user_profile_data , make it match the frontend by not sending the email as part of the response

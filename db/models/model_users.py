@@ -1,3 +1,4 @@
+from turtle import back
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey , Text
 
@@ -18,6 +19,9 @@ class User( TimeStamp , Base): # this base here is the declarative instance obje
 
     account = relationship("Account" , uselist = False ,back_populates = "user")
     transactions = relationship("Transaction" , back_populates = "user")
+    stakes= relationship("Stakes", back_populates='user')
+    stakes= relationship("Stakes", back_populates='invited_user')
+
     # reminder : uselist is at flase for the account relationship because its is a one to one relationship yet for most relationships in sqlalchemy they are asumed to be one to many relationships
 
 # account based models go here

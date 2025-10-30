@@ -18,6 +18,7 @@ from db.db_setup import Base
 from db.models.model_users import User, Account, Transaction # Import all models
 from db.models.model_leagues import League , PopularLeague
 from db.models.model_fixtures import Fixture
+from db.models.model_stakes import Stake
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
