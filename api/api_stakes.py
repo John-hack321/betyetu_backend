@@ -124,7 +124,7 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                     stakeAmount= item.amount,
                     stakeStatus= item.stake_status,
                     stakeResult= result,
-                    date= item.created_at,
+                    date= item.created_at.isoformat(),
                 )
 
                 general_stakes_object.stakeData.append(data)
@@ -148,7 +148,7 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                     stakeAmount= item.invited_user_amount,
                     stakeStatus= item.stake_status,
                     stakeResult= result,
-                    date= item.created_at,
+                    date= item.created_at.isoformat(),
                 )
 
             general_stakes_object.stakeData.append(data)
@@ -157,6 +157,9 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail=f'an unexpected error occured: looping through the guest_stake, {str(e)} ')
 
+        #before we return the data we will sort by the time of creation: created_at
+        general_stakes_object.stakeData.sort(key=lambda x: x.date, reverse=True)
+        
         general_stakes_object.status= status.HTTP_200_OK
         general_stakes_object.message= "the user stakes data has been retreived succesfuly"
 

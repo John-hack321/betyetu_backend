@@ -1,9 +1,9 @@
 from numbers import Number
-from re import S
 from typing import Optional
 from fastapi.openapi.models import BaseModelWithConfig
 from pydantic import BaseModel
 from sqlalchemy import Null
+import enum
 
 from db.db_setup import Base
 

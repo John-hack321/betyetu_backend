@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,7 +28,11 @@ class StakingService:
                 logger.error(f'an error occured while adding stake onwer data to the database and updating account balance')
 
             return {
-                "invite_code": invite_code,
+                "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "message": "the stake has been created successfuly for the user",
+                "data": {
+                    "code": invite_code
+                }
             }
 
         return {
@@ -77,10 +82,17 @@ class StakingService:
         if not db_stake_data:
             logger.error(f'stake data returned from the db is not as defined')
 
+    """
+    for this we will make use of the uuid concept in python 
+    """
     async def __generate_invite_code(self, user_id: int):
-        # we will define the logic later on
-        code= "abcedefgh"
-        return code
+        try:
+            uuid_string= str(uuid.uuid4).replace('-','').upper[:8]
+            invite_code= f"{uuid_string[:4]}-{uuid_string[4:]}"
+            return invite_code
+        except Exception as e:
+            logger.error(f'an unexpecte error occured: __generate_invite_code: detail: {str(e)}', exc_info=True)
+            raise RuntimeError(f'an unexpected error occured: __generate_invite_code {str(e)}')
 
     # dedcucts the stake amount from the wallet of the user
     async def __update_account_balance_based_on_stake(self, db: AsyncSession, user_id: int, stake_amount: int):
@@ -93,59 +105,3 @@ class StakingService:
         db_object= await add_guest_stake_data_to_db(db,user_id,guest_stake_data)
         if not db_object:
             logger.error(f'an error occured:__add_guest_stake_data , object returned from database is not as expected')
-        
-
-
-
-
-
-
-
-
-
-# class StakingService:
-#     def __init__(self):
-#         pass
-# 
-#     async def generate_invite_code(self):
-#         pass
-# 
-#     async def add_stake_initiation_data_to_database(self, db : AsyncSession,
-#             user_id: int,
-#             invite_code: str,
-#             stake_initiation_payload: StakeInitiationPayload):
-#         try:
-#             db_stake_initiation_object= await create_stake_object(db, stake_initiation_payload, user_id, invite_code)
-#             if not db_stake_initiation_object:
-#                 logger.error(f"falied to create stake object in the database : object returned: {db_stake_initiation_object}")
-#                 raise HTTPException(
-#                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-#                     detail=f"failed to create the stake_initiation_db_object data returned : {db_stake_initiation_object}"
-#                 )
-#         except Exception as e:
-#             logger.error(f"an error occured on the add_stake_initiation_data_to_database {e}", exc_info=True)
-#             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR , 
-#             detail=f"an error occred on the add_stake_initiation_data_to_database : {e}")
-# 
-#     async def initiate_staking_service_with_stake_initiator_data(self,
-#             db: AsyncSession,
-#             stake_initiation_payload: StakeInitiationPayload,
-#             user_id: int):
-#         try:
-#             invite_code = await self.generate_invite_code()
-#             await self.add_stake_initiation_data_to_database(db, user_id, invite_code, stake_initiation_payload)
-#         except Exception as e:
-#             logger.error('failed to initiate the staking service')
-# 
-#     async def connect_to_initiated_stake(invite_code: str):
-#         """
-#         feth stake object from the database
-#         """
-#         try:
-#             db_object_stake= await get_stake_by_invite_code_from_db(invite_code)
-#             if not db_object_stake:
-#                 logger.error(f'failed to return stake object from the database')
-#         except Exception as e:
-#             logger.error(f'an error occured on the ')
-#             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=f"an error occured no the connect_to_initiated_stake (StakingService) : {e}")
