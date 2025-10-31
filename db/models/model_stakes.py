@@ -19,7 +19,7 @@ class Stake(Base, TimeStamp):
 
     id= Column(Integer, primary_key=True, nullable=False, index=True)
     user_id= Column(Integer, ForeignKey("users.id"), nullable=False)
-    match_id= Column(Integer, ForeignKey("fixtures.match_id"), nullable=False, name="match_id")
+    match_id= Column(Integer, ForeignKey("fixtures.match_id"), nullable=False)
     home= Column(String, nullable=False)
     away= Column(String, nullable=False)
     placement= Column(String, nullable=False)
@@ -31,6 +31,6 @@ class Stake(Base, TimeStamp):
     stake_status= Column(Enum(StakeStatus), nullable=False, default=StakeStatus.pending)
     winner= Column(Enum(StakeWinner), nullable=True)
 
-    user = relationship("User", back_populates='stakes_owned', foreign_keys=[user_id])
-    invited_user = relationship("User", back_populates='stakes_invited', foreign_keys=[invited_user_id])
+    user = relationship("User", back_populates='owned_stakes', foreign_keys=[user_id])
+    invited_user = relationship("User", back_populates='invited_stakes', foreign_keys=[invited_user_id])
     match = relationship("Fixture", back_populates='stakes')
