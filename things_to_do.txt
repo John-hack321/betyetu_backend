@@ -1,11 +1,13 @@
 short but lazy things that i need to do before i forget:
+    start using redis on the match processing function in live data services
     learn and find out if im doing error handling the right way 
 
 big things that need to be done 
+    decided i will use reidsJson for handling my match data in one redis store ( store number1) => urgent
+    need to understane the inner working of alembic so that i avoid falling into alembic pitfalls and all
+    optimize the stakes endpoint to make it more time effeicient and less resource intensive
 
 code red things that need critical fixing 
-    fix the database alembic versioning issues with regards to Stake model and other modles soon to come (veryy urgent)
-    optimize the stakes endpoint to make it more time effeicient and less resource intensive
 
 
 
@@ -20,3 +22,4 @@ completed stuff :
 1. on the fetch_user_profile_data , make it match the frontend by not sending the email as part of the response
 2. find a way for returning the time the db_object was created at well ( either craate a new column for data of creation of rind a way to use the already created_at column already present)
 3. find a way to sort the stakes data before sending back to the frontend
+4. fix the database alembic versioning issues with regards to Stake model and other modles soon to come (veryy urgent)

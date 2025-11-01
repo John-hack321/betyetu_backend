@@ -5,6 +5,7 @@ from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey ,
 from db.db_setup import Base
 from db.models.mixins import TimeStamp
 from pydantic_schemas.transaction_schemas import trans_type , trans_status
+from db.models.model_stakes import Stake
 
 # user based models go here 
 
