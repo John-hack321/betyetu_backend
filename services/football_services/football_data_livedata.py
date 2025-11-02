@@ -9,6 +9,7 @@ from fastapi import status
 from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLIveMatch
 from services.caching_services.redis_client import add_live_match_to_redis, get_live_match_data_from_redis, get_live_matches_from_redis, get_popular_league_ids_from_redis, update_live_match_home_score, update_live_match_away_score, update_live_match_time
 from services.socket_services.socket_service import send_match_data_through_socket
+from services.sockets.socket_services import send_live_data_to_users
 
 # doing better error handling starting from now on this file 
 
@@ -60,6 +61,8 @@ class LiveDataService():
         try:
             popular_league_ids: list[int]= await get_popular_league_ids_from_redis()
 
+            updated_match_ids_list= []
+
             for item in live_football_data.response:
                 if item.leagueId in popular_league_ids:
                     # check if the live match is present in the redis store
@@ -94,7 +97,10 @@ class LiveDataService():
                     # we will alway updte the live match time even when the other changes have not taken effect
                     update_live_match_time(item.id, item.status.liveTime.short)
 
-                    await send_match_data_through_socket(item.id)
+                    updated_match_ids_list.append(item.id)
+
+            await send_live_data_to_users(updated_match_ids_list)
+            
         except HTTPException:
             raise # reraise the previous exceptionc caught in the dirrerent functoins
 
