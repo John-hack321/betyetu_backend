@@ -51,3 +51,12 @@ class LiveMatch(BaseModel):
 class LiveFootballDataResponse(BaseModel):
     status: str
     response: list[LiveMatch]
+
+class RedisStoreLIveMatch(BaseModel):
+    matchId: str
+    leageuId: str
+    homeTeam: str
+    awayTeam: str
+    homeTeamScore: int
+    awayTeamScore: int
+    time: str

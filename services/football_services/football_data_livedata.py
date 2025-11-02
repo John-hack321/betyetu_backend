@@ -6,8 +6,8 @@ import aiohttp
 from fastapi import HTTPException
 from fastapi import status
 
-from pydantic_schemas.live_data import LiveFootballDataResponse
-from services.caching_services.redis_client import get_live_matches_from_redis, get_popular_league_ids_from_redis
+from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLIveMatch
+from services.caching_services.redis_client import add_live_match_to_redis, get_live_match_data_from_redis, get_live_matches_from_redis, get_popular_league_ids_from_redis, update_live_match_home_score, update_live_match_away_score
 
 # doing better error handling starting from now on this file 
 
@@ -50,10 +50,36 @@ class LiveDataService():
 
 
     async def __process_live_football_data(self, live_football_data: LiveFootballDataResponse):
+        """
+        first check matchi is in a popular league
+        if it is in a populare league, compare if the scores have changed 
+        """
         popular_league_ids: list[int]= await get_popular_league_ids_from_redis()
-        cached_live_matches= await get_live_matches_from_redis()
 
         for item in live_football_data.response:
             if item.leagueId in popular_league_ids:
-                pass
-            continue
+                # check if the live match is present in the redis store
+                live_match: RedisStoreLIveMatch= await get_live_match_data_from_redis(item.id)
+                # if the live match is not present we will add it then do other thing necesary for new matches then skip other logic
+                if not live_match:
+                    logger.info(f"the live match of id {item.id} is not present in the redis store")
+                    live_match_data= RedisStoreLIveMatch(
+                        matchId= item.id,
+                        leageuId= item.leagueId,
+                        homeTeam= item.home.name,
+                        awayTeam= item.away.name,
+                        homeTeamScore= item.home.score,
+                        awayTeamScore= item.away.score,
+                        time= item.status.liveTime.short,
+                    )
+                    await add_live_match_to_redis(live_match_data)
+                    continue
+                
+                # confirming to see if there has been a score
+                if item.home.score != live_match.homeTeamScore:
+                    await update_live_match_home_score(item.id, item.home.score)
+                    logger.info('the homve team score has been updated successfuly')
+            
+                if item.away.score != live_match.awayTeamScore:
+                    await update_live_match_away_score(item.id, item.home.score)
+                    logger.info(f"the away socre has been updated successfuly")
