@@ -122,7 +122,7 @@ async def update_live_match_away_score(match_id: int, away_score: int):
             detail=f"an error occured while updating live match away_score, {str(e)}"
         )
 
-async def upate_live_match_time(match_id: int, time: str):
+async def update_live_match_time(match_id: int, time: str):
     try:
         r.hset(f"{match_id}", "time", time)
     except Exception as e:

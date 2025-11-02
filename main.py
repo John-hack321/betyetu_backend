@@ -11,11 +11,14 @@ from db.db_setup import create_database , drop_database
 from api import  api_auth , api_users , api_transactions , api_fixtures
 from api.admin_routes.admin_apis import leagues
 from logging_config import setup_logging
+from services.sockets.socket_services import sio_app
 
 
 app = FastAPI(
     # we will add system info here for later on 
 )
+
+app.mount('/socket_services', app=sio_app)
 
 load_dotenv('.env')
 load_dotenv('.env.prod') # as always this one overides the first .env file 
