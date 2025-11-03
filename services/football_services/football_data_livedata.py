@@ -2,13 +2,13 @@ import logging
 import os
 from dotenv import load_dotenv
 import aiohttp
+import sys
 
 from fastapi import HTTPException
 from fastapi import status
 
 from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLIveMatch
 from services.caching_services.redis_client import add_live_match_to_redis, get_live_match_data_from_redis, get_live_matches_from_redis, get_popular_league_ids_from_redis, update_live_match_home_score, update_live_match_away_score, update_live_match_time
-from services.socket_services.socket_service import send_match_data_through_socket
 from services.sockets.socket_services import send_live_data_to_users
 
 # doing better error handling starting from now on this file 

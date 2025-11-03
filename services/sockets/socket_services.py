@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 
+import sys
 import socketio
 import logging
 

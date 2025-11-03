@@ -5,6 +5,11 @@ from fastapi.middleware.cors import  CORSMiddleware
 
 import os
 from dotenv import load_dotenv
+from datetime import datetime
+import AsyncIOScheduler
+import logging
+import sys
+import asyncio
 
 from db.db_setup import Base , engine
 from db.db_setup import create_database , drop_database
@@ -26,12 +31,34 @@ load_dotenv('.env.prod') # as always this one overides the first .env file
 # In main.py, update this line:
 allowed_origins = os.getenv('ALLOWED_ORIGINS', '').split(',')
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(funcName)s() | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
+    ]
+)
+
+logger= logging.getLogger(__name__)
+
 
 # we dont need this anymore alembic will handle the creations 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print('the application has just started')
+
+    # APSchedular logic here
+    scheduler = AsyncIOScheduler()
+    scheduler.start()
+    logger.info(f"the APSchedular service has been started now")
+
+    # live data polling logic starts from here
+    now= datetime.now(nairobi_tz)
+    if 13 <= now.hour > 3:
+        # we create a polling loop if the condition is met
+        asyncio.create_task(pollig_loop())
 
     # on startup config actions
     setup_logging()
