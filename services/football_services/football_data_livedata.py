@@ -51,6 +51,7 @@ class LiveDataService():
 
 
     # this functio will be called everytime we get live data back from api calls
+    # it has no return type as it is a process function
     async def __process_live_football_data(self, live_football_data: LiveFootballDataResponse):
         """
         first check matchi is in a popular league
