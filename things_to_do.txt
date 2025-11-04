@@ -1,13 +1,19 @@
 short but lazy things that i need to do before i forget:
-    start using redis on the match processing function in live data services
-    learn and find out if im doing error handling the right way 
+    create an ended fixture pydantic modelf for handling the ended match logic
+    confirm if i need to make the match service instace global like the polling service so that i dont have to call it each time in a different place
+    confirm if i have done the db_dependancy thing well
 
 big things that need to be done 
-    decided i will use reidsJson for handling my match data in one redis store ( store number1) => urgent
     need to understane the inner working of alembic so that i avoid falling into alembic pitfalls and all
     optimize the stakes endpoint to make it more time effeicient and less resource intensive
 
-code red things that need critical fixing 
+code red things that need critical fixing or doing:
+    find a way to send the ended match data to the frontend well with respect to redis
+    find a way to remove the ended matches from redis
+
+
+big things but for later on
+    make the fixtures and league data to include even the season data (eg. 2024/2025 season shit)
 
 
 
@@ -23,3 +29,7 @@ completed stuff :
 2. find a way for returning the time the db_object was created at well ( either craate a new column for data of creation of rind a way to use the already created_at column already present)
 3. find a way to sort the stakes data before sending back to the frontend
 4. fix the database alembic versioning issues with regards to Stake model and other modles soon to come (veryy urgent)
+3. start using redis on the match processing function in live data services
+4. learn and find out if im doing error handling the right way 
+
+

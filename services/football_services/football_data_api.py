@@ -5,15 +5,14 @@ import aiohttp
 import logging
 
 from fastapi import HTTPException , status
-from requests import status_codes
 from sqlalchemy import true
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import query
 
 from api.admin_routes.util_leagues import add_league_to_db
 from api.admin_routes.util_matches import add_match_to_db
-from api.utils.dependancies import db_dependancy
 from pydantic_schemas.fixtures_schemas import MatchObject
+
+load_dotenv()
 
 logger= logging.getLogger(__name__)
 
@@ -202,3 +201,14 @@ class FootballDataService():
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR ,
             detail= f"an error occured on on the_add_fixtures_list_object_to_database {str(e)}")
 
+    """
+    will be used for getting fixtures by id from the api source
+    TODO: fetch fixture by match id
+    TODO: proccess the fixture data to a state that we can easily get data points that we want
+    """
+    async def __fetch_fixture_by_match_id_from_api(self, match_id: int):
+        # TODO: define the logic for getting the fixture of one match by league id
+        pass
+
+
+football_data_service= FootballDataService()

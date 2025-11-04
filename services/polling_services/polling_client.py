@@ -8,8 +8,12 @@ import sys
 from dotenv import load_dotenv
 import os
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.football_services.football_data_livedata import LiveDataService
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from api.utils.dependancies import db_dependancy
+
 
 
 logging.basicConfig(
@@ -41,12 +45,12 @@ class PollingManager():
 
     
     # starting the task
-    async def start(self):
+    async def start(self, db: db_dependancy):
         if self.is_running():
             logger.warning(f"polling already running, ignoring start request")
 
         logger.info(f"starting live data polling")
-        self.current_task= asyncio.create_task(self._poll_loop())
+        self.current_task= asyncio.create_task(self._poll_loop(db))
         # and like that we will have created the task and made it to run
 
     # stoping the polling task
@@ -61,13 +65,13 @@ class PollingManager():
                 logger.info(f"polling task has been cancelled successfully")
 
 
-    async def _fetch_and_process_live_football_data(self):
+    async def _fetch_and_process_live_football_data(self, db: AsyncSession):
         try:
             logger.info("sending the request for live data now")
             live_data= await self.live_data_service.__fetch_live_football_data()
 
             logger.info(f"now processing the data")
-            await self.live_data_service.__process_live_football_data(live_data)
+            await self.live_data_service.__process_live_football_data(live_data, db)
 
         except Exception:
             raise # raise previouse excpetions
@@ -86,7 +90,7 @@ class PollingManager():
         )
 
     # the polling loop itself
-    async def _poll_loop(self):
+    async def _poll_loop(self, db: AsyncSession):
         # the main polling loop runs every 7 seconds and self terminates at 3 am
         logger.info(f"the polling loop has been started")
 
@@ -99,7 +103,7 @@ class PollingManager():
                     logger.info(f"reached 3AM stop time {current: {now.hour}:00}, stopping polling")
                     break
 
-                await self._fetch_and_process_live_football_data()
+                await self._fetch_and_process_live_football_data(db)
 
                 # sleep for 7 seconds first
                 await asyncio.sleep(7)

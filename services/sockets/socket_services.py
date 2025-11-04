@@ -51,6 +51,25 @@ async def join_room_for_live_data(user_data):
             detail=f"an error occured while trying to join a live room for live data, {str(e)}"
         )
 
+@sio_server.event
+async def update_match_to_live_on_frontend_with_live_data_too(match_id: int):
+    try:
+        live_match= await get_live_match_data_from_redis(match_id)
+        logger.info(f"live match gotten now broadcasting to users")
+        await sio_server.emit('upate_match_to_live_on_frontend_with_live_data_too', {'live_match_data': live_match})
+
+    except Exception as e:
+        logger.error(f"an error occured while updating match to live on frontend: {str(e)}",
+        exc_info=True,
+        extra={
+            "affected_match_id": match_id
+        })
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while updating match to live on frontend, {str(e)}"
+        )
+
 # this function will handle sending live data to the other users via socketio 
 # this occurs everytim a change is made to the data on redis
 @sio_server.event

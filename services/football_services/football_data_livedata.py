@@ -6,10 +6,13 @@ import sys
 
 from fastapi import HTTPException
 from fastapi import status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.admin_routes.util_matches import update_fixture_to_live_on_db, update_match_with_match_ended_data
 from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLIveMatch
 from services.caching_services.redis_client import add_live_match_to_redis, get_live_match_data_from_redis, get_live_matches_from_redis, get_popular_league_ids_from_redis, update_live_match_home_score, update_live_match_away_score, update_live_match_time
-from services.sockets.socket_services import send_live_data_to_users
+from services.sockets.socket_services import send_live_data_to_users, update_match_to_live_on_frontend_with_live_data_too
+from services.football_services.football_data_api import football_data_service
 
 # doing better error handling starting from now on this file 
 
@@ -49,10 +52,61 @@ class LiveDataService():
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail=f"an error occured while fetching the live football match data")
 
+    async def __update_match_to_live_on_db_and_frontend(self, db: AsyncSession, match_id: int):
+        try:
+            await update_fixture_to_live_on_db(db,match_id)
+            
+            # the match is already updated on db and now we need to do the same on frontend
+            await update_match_to_live_on_frontend_with_live_data_too(match_id)
+
+        except HTTPException:
+            raise # reraise any excpetion
+
+        except Exception as e:
+            logger.error(f'an error occured while updating match to live on db {str(e)}',
+            exc_info=True,
+            extra={
+                "affected_match_id": match_id
+            })
+
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"an error occured while updating match to live on db and frontend, {str(e)}"
+            )
+
+    async def __process_matches_that_have_ended(self, db: AsyncSession, updated_match_ids_list: list[int]):
+        try:
+            live_matches_list: list[RedisStoreLIveMatch]= await get_live_matches_from_redis()
+            for item in live_matches_list:
+                if item.matchId in updated_match_ids_list:
+                    # it is in the updated match ids list then it means that it is still live
+                    # if not it means that it has ended and we will query the data from the api and update it on the backend
+                    continue
+                # the first usage of the global football_data_service
+                
+                # TODO: define a pydantic fixture for this match end model from the api
+                fixture= await football_data_service.__get_fixture_by_match_id(item.matchId)
+                db_fixture_object= await update_match_with_match_ended_data(db, fixture)
+
+                if not db_fixture_object:
+                    logger.error(f"failed to update fixture objecct to ended status in db")
+
+                # the next step is to make the fronted to be aware of this specific one
+
+
+        except HTTPException:
+            raise
+
+        except Exception as e:
+            logger.error(f"an error occured while processing matches that have ended: {str(e)}",
+            exc_info=True,
+            extra={})
+        
+
 
     # this functio will be called everytime we get live data back from api calls
     # it has no return type as it is a process function
-    async def __process_live_football_data(self, live_football_data: LiveFootballDataResponse):
+    async def __process_live_football_data(self, live_football_data: LiveFootballDataResponse, db: AsyncSession):
         """
         first check matchi is in a popular league
         if it is not add to the redis store
@@ -81,6 +135,7 @@ class LiveDataService():
                             time= item.status.liveTime.short,
                         )
                         await add_live_match_to_redis(live_match_data)
+                        await self.__update_match_to_live_on_db_and_frontend(db, item.id)
                         continue
                     
                     # confirming to see if there has been a score on both home and away and updating them
@@ -101,7 +156,12 @@ class LiveDataService():
                     updated_match_ids_list.append(item.id)
 
             await send_live_data_to_users(updated_match_ids_list)
+
+            # i think we can also use the updated_match_ids_list to know which matches are in the store but no in the live_data
+            # these are the matches that we need to handle by updating them on db as ended and on user also as ended and remove them from redis to
             
+            await self.__process_matches_that_have_ended()
+
         except HTTPException:
             raise # reraise the previous exceptionc caught in the dirrerent functoins
 
@@ -117,3 +177,8 @@ class LiveDataService():
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"an error occured while processing live football data, {str(e)}"
             )
+
+# i think i should make the live data service instance global
+# thought i havent used it as a global thing yet in the code 
+# but im about to soon so long as im done with the consulting on whether to use it or not
+live_data_service= LiveDataService()

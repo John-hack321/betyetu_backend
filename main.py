@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-import fastapi
 from fastapi import  FastAPI
 from fastapi.middleware.cors import  CORSMiddleware
 
@@ -9,7 +8,6 @@ from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
 import sys
-import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
@@ -21,7 +19,6 @@ from logging_config import setup_logging
 from services.polling_services.polling_client import schedule_daily_polling, should_start_polling_now
 from services.sockets.socket_services import sio_app
 from services.polling_services.polling_client import polling_manager
-
 
 app = FastAPI(
     # we will add system info here for later on 
@@ -85,8 +82,6 @@ async def lifespan(app: FastAPI):
 
     logger.info(f"Application shutdown complete")
 
-# Base.metadata.create_all(bind = engine) # we had to cancel this out because its not async capable its only fo syncronous databases 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'], # for now we will accept all origins the modify later on
@@ -101,5 +96,3 @@ app.include_router(api_users.router)
 app.include_router(api_transactions.router)
 app.include_router(leagues.router)
 app.include_router(api_fixtures.router)
-
-
