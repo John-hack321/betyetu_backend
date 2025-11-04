@@ -1,35 +1,33 @@
 from contextlib import asynccontextmanager
-from fastapi import  FastAPI
-from fastapi.middleware.cors import  CORSMiddleware
-
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pytz import timezone
 import os
 from dotenv import load_dotenv
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
 import sys
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-
-from db.db_setup import Base , engine
-from db.db_setup import create_database , drop_database
-from api import  api_auth , api_users , api_transactions , api_fixtures
+from api.utils.dependancies import db_dependancy
+from db.db_setup import Base, engine, get_db
+from db.db_setup import create_database, drop_database
+from api import api_auth, api_users, api_transactions, api_fixtures
 from api.admin_routes.admin_apis import leagues
 from logging_config import setup_logging
-from services.polling_services.polling_client import schedule_daily_polling, should_start_polling_now
+from services.polling_services.polling_client import schedule_daily_polling, should_start_polling_now, polling_manager
 from services.sockets.socket_services import sio_app
-from services.polling_services.polling_client import polling_manager
 
-app = FastAPI(
-    # we will add system info here for later on 
-)
+# Define timezone
+NAIROBI_TZ = timezone('Africa/Nairobi')
+
+app = FastAPI()
 
 app.mount('/socket_services', app=sio_app)
 
 load_dotenv('.env')
-load_dotenv('.env.prod') # as always this one overides the first .env file 
+load_dotenv('.env.prod')
 
-# In main.py, update this line:
 allowed_origins = os.getenv('ALLOWED_ORIGINS', '').split(',')
 
 logging.basicConfig(
@@ -41,50 +39,56 @@ logging.basicConfig(
     ]
 )
 
-logger= logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
-# handles the startup and shutdonw logic
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print('the application has just started')
-
-    # APSchedular initialization logic here
-    scheduler= AsyncIOScheduler(timezone= NAIROBI_TZ)
-    scheduler.start()
-    logger.info("APSschedular started")
-
-    # schedule the 1 pm daily trigger
-    schedule_daily_polling(scheduler)
-
-    # check if we should start polling immediately (for a restart scenario)
-    if should_start_polling_now():
-        now= datetime.now(nairobi_tz)
-        logger.info(f"Current time: {now.strftime('%H:%M')} si within polling hours so we are starting immediately")
-        await polling_manager.start()
-
-    else:
-        logger.info(f"outside polling hors waiting for 1pm to 3 am polling window")
-
+    print('The application has just started')
+    
     setup_logging()
 
-    yield # the application is running 
+    # APScheduler initialization
+    scheduler = AsyncIOScheduler(timezone=NAIROBI_TZ)
+    scheduler.start()
+    logger.info("APScheduler started")
 
-    # on application shuttdown
-    print('the application is shutting down now')
+    # Schedule the 1 PM daily trigger
+    schedule_daily_polling(scheduler)
 
-    # stop polling gracefully
+    # Check if we should start polling immediately
+    if should_start_polling_now():
+        now = datetime.now(NAIROBI_TZ)
+        logger.info(f"Current time: {now.strftime('%H:%M')} is within polling hours, starting immediately")
+        
+        # Get database session for polling
+        async for db in get_db():
+            try:
+                await polling_manager.start()
+            finally:
+                await db.close()
+    else:
+        logger.info("Outside polling hours, waiting for 1pm to 3am polling window")
+
+    yield  # Application is running
+
+    # On application shutdown
+    print('The application is shutting down now')
+
+    # Stop polling gracefully
     await polling_manager.stop()
 
-    # shut down the scheduler
-    scheduler.shutdonw(wait=True)
-    logger.info(f"APScheduler shutdown")
+    # Shut down the scheduler
+    scheduler.shutdown(wait=True)
+    logger.info("APScheduler shutdown")
+    logger.info("Application shutdown complete")
 
-    logger.info(f"Application shutdown complete")
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'], # for now we will accept all origins the modify later on
+    allow_origins=['*'],
     allow_credentials=True,
     allow_headers=['*'],
     allow_methods=['*'],

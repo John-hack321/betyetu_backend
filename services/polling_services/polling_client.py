@@ -12,6 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.football_services.football_data_livedata import LiveDataService
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from pytz import timezone
+
+# Define timezone
+NAIROBI_TZ = timezone('Africa/Nairobi')
 from api.utils.dependancies import db_dependancy
 
 
@@ -133,12 +138,12 @@ def schedule_daily_polling(scheduler: AsyncIOScheduler):
     uses cron trigger for precise daily scheduling
     """
 
-    schedular.add_job(
+    scheduler.add_job(
         polling_manager.start,
-        rigger= CronTrigger(
+        trigger=CronTrigger(
             hour=13,
             minute=0,
-            timezone= NAIROBI_TZ
+            timezone=NAIROBI_TZ
         ),
         id="daily_polling_start",
         name="Start Live Data Polling",
