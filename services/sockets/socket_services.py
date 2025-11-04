@@ -4,6 +4,7 @@ import sys
 import socketio
 import logging
 
+from pydantic_schemas.live_data import LiveMatch
 from services.caching_services.redis_client import get_live_match_data_from_redis
 
 logging.basicConfig(
@@ -32,31 +33,17 @@ sio_app = socketio.ASGIApp(
 # and maybe i should store room id in the database
 
 # since we will only have this one room we make it hard typed and alway accessible to anyone
-room_id= "live_matches_room"
+LIVE_MATCHES_ROOM_ID= "live_matches_room"
 
-# TODO: define a pydantic model for the user_data pyaload for joing a room
-async def join_room_for_live_data(user_data):
-    try: 
-        await sio_server.enter_room(user_data.get("sid"), user_data.get("room_id"))
-
-    except Exception as e:
-        logger.error(f"an error occured whiel user {user_data.get('user_id')} of sid {sid} was trying to join live data room: {str(e)}",
-        extra={
-            "affected_user": user_data.get("user_id"),
-            "affected_user_sid": user_data.get("sid"),
-        })
-
-        raise HTTPException(
-            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"an error occured while trying to join a live room for live data, {str(e)}"
-        )
-
-@sio_server.event
 async def update_match_to_live_on_frontend_with_live_data_too(match_id: int):
     try:
         live_match= await get_live_match_data_from_redis(match_id)
-        logger.info(f"live match gotten now broadcasting to users")
-        await sio_server.emit('upate_match_to_live_on_frontend_with_live_data_too', {'live_match_data': live_match})
+
+        logger.info(f"broadcasting live match {live_match} to users now")
+
+        await sio_server.emit('upate_match_to_live_on_frontend_with_live_data_too',
+         {'live_match_data': live_match},
+         room= LIVE_MATCHES_ROOM_ID)
 
     except Exception as e:
         logger.error(f"an error occured while updating match to live on frontend: {str(e)}",
@@ -72,7 +59,6 @@ async def update_match_to_live_on_frontend_with_live_data_too(match_id: int):
 
 # this function will handle sending live data to the other users via socketio 
 # this occurs everytim a change is made to the data on redis
-@sio_server.event
 async def send_live_data_to_users(updated_match_ids_list: list[int]):
     # we first have to fetch this data from redis
     try:
@@ -82,7 +68,9 @@ async def send_live_data_to_users(updated_match_ids_list: list[int]):
             live_match= await get_live_match_data_from_redis(item)
             live_match_updates.append(live_match)
 
-        await sio_server.emit('send_live_data_to_users', {"liveMatchData": live_match_updates})
+        await sio_server.emit('send_live_data_to_users',
+         {"liveMatchData": live_match_updates},
+         room= LIVE_MATCHES_ROOM_ID)
 
     except HTTPException:
         raise # we raise these again
@@ -101,10 +89,22 @@ async def send_live_data_to_users(updated_match_ids_list: list[int]):
         )
     
 @sio_server.event
-async def connect(sid , environ , auth = None):
+async def connect(sid , environ , user_data ,auth = None):
     try:
         print(f'the connection has been established for the sid {sid}')
+
+        await sio_server.enter_room(sid, room=LIVE_MATCHES_ROOM_ID)
+
         await sio_server.emit('join' , {'sid' : sid , 'message': 'Connected successfully'}) 
+        logger.info(f"the user of sid: {sid} has successfuly joined the room")
+
+        await sio_server.emit('connection_confirmed',
+        {
+            "sid": sid,
+            "message": "connection successful",
+            "room": LIVE_MATCHES_ROOM_ID
+        },
+        to=sid)
 
     except Exception as e:
         logger.error(f"an error occured while trying to connect to socketio, {str(e)}",
@@ -122,3 +122,41 @@ async def connect(sid , environ , auth = None):
 @sio_server.event
 async def disconnect(sid , environ):
     print(f'the sid {sid} as been disconnected')
+
+# well as much as users join the live_data_room on join we still have to have this optional join option here
+# TODO: define a pydantic model for the user_data pyaload for joing a room
+async def join_room_for_live_data(user_data):
+    try: 
+        await sio_server.enter_room(user_data.get("sid"), user_data.get("room_id"))
+
+    except Exception as e:
+        logger.error(f"an error occured whiel user {user_data.get('user_id')} of sid {sid} was trying to join live data room: {str(e)}",
+        extra={
+            "affected_user": user_data.get("user_id"),
+            "affected_user_sid": user_data.get("sid"),
+        })
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while trying to join a live room for live data, {str(e)}"
+        )
+
+
+async def leave_live_data_room(sid):
+    """
+    allow clients to optionaly leave a live data room
+    """
+    try:
+        await sio_server.leave_room(sid, LIVE_MATCHES_ROOM_ID)
+        logger.info(f"an error occured whle trying to leave room : {LIVE_MATCHES_ROOM_ID}")
+
+    except Exception as e:
+
+        logger.error(f"an error occured while trying to leave live room: {str(e)}",
+        exc_info=True,
+        extra={"sid": sid})
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while trying to leave live data room"
+        )

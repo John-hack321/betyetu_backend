@@ -4,6 +4,7 @@ from db.models.mixins import TimeStamp
 
 from sqlalchemy import String , Integer , ForeignKey , Text , DateTime , Boolean , Column, Enum
 from sqlalchemy.orm import relationship
+import enum
 
 class FixtureStatus(enum.Enum):
     live= 1
@@ -24,7 +25,7 @@ class Fixture(Base , TimeStamp):
     outcome= Column(String, nullable=True)
     home_score= Column(Integer, default=0)
     away_score= Column(Integer, default=0)
-    fixture_status= Column(Enum(FixtureStatus), defautl= FixtureStatus.future)
+    fixture_status= Column(Enum(FixtureStatus), default= FixtureStatus.future)
 
     league= relationship("League" , back_populates="fixtures")
     stakes = relationship('Stake', back_populates="match")
