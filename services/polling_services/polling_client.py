@@ -1,6 +1,6 @@
 import asyncio
-import datetime
-from time import timezone
+from datetime import datetime
+from time import timezone as std_timezone
 from fastapi import HTTPException, status, HTTPException
 
 import logging
@@ -45,7 +45,7 @@ class PollingManager():
         self.football_data_api_key= os.getenv("FOOTBALL_API_KEY")
 
     # check if theres a task that is running
-    def running(self):
+    def is_running(self):
         return self.current_task and not self.current_task.done()
 
     
@@ -73,10 +73,12 @@ class PollingManager():
     async def _fetch_and_process_live_football_data(self, db: AsyncSession):
         try:
             logger.info("sending the request for live data now")
-            live_data= await self.live_data_service.__fetch_live_football_data()
+            # Call the public method that handles the private method call
+            live_data = await self.live_data_service.get_live_football_data(self.football_data_api_key)
 
-            logger.info(f"now processing the data")
-            await self.live_data_service.__process_live_football_data(live_data, db)
+            if live_data:
+                logger.info("now processing the data")
+                await self.live_data_service.process_live_football_data(live_data, db)
 
         except Exception:
             raise # raise previouse excpetions
@@ -101,11 +103,11 @@ class PollingManager():
 
         while True:
             try:
-                now= datetime.now(nairobi_tz)
+                now = datetime.now(NAIROBI_TZ)
 
                 # check if we have reached 3AM which is the stopping time
                 if now.hour >= 3 and now.hour < 13:
-                    logger.info(f"reached 3AM stop time {current: {now.hour}:00}, stopping polling")
+                    logger.info(f"reached 3AM stop time (current: {now.hour}:00), stopping polling")
                     break
 
                 await self._fetch_and_process_live_football_data(db)
@@ -134,12 +136,23 @@ polling_manager= PollingManager()
 
 def schedule_daily_polling(scheduler: AsyncIOScheduler):
     """
-    schedule polling to start at 1 pm every day
-    uses cron trigger for precise daily scheduling
+    Schedule polling to start at 1 pm every day
+    Uses cron trigger for precise daily scheduling
     """
+    from db.db_setup import get_db
+
+    async def start_polling_job():
+        async for db in get_db():
+            try:
+                await polling_manager.start(db)
+                break  # Only need one session
+            except Exception as e:
+                logger.error(f"Failed to start polling job: {str(e)}", exc_info=True)
+            finally:
+                await db.close()
 
     scheduler.add_job(
-        polling_manager.start,
+        start_polling_job,
         trigger=CronTrigger(
             hour=13,
             minute=0,

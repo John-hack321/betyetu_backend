@@ -30,8 +30,20 @@ logger= logging.getLogger(__name__)
 
 class LiveDataService():
     def __init__(self):
-            self.football_data_api_key= os.getenv('FOOTBALL_API_KEY')
-            self.livefootball_data_api_url= os.getenv('LIVE_FOOTBALL_API_URL')
+        self.football_data_api_key = os.getenv('FOOTBALL_API_KEY')
+        self.livefootball_data_api_url = os.getenv('LIVE_FOOTBALL_API_URL')
+    
+    async def get_live_football_data(self, api_key: str):
+        """
+        Public method to fetch live football data
+        """
+        return await self.__fetch_live_football_data(api_key)
+    
+    async def process_live_football_data(self, live_data: dict, db: AsyncSession):
+        """
+        Process the live football data
+        """
+        return await self.__process_live_football_data(live_data, db)
 
     async def __fetch_live_football_data(self, api_key: str):
         try:
@@ -41,8 +53,7 @@ class LiveDataService():
             }
 
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers) as response:
-                    await response.raise_for_status()
+                async with session.get(self.livefootball_data_api_url, headers=headers) as response:
                     logger.info(f'the api call was succesful')
                     response_data= await response.json()
                     return response_data

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.admin_routes.util_leagues import add_league_to_db
 from api.admin_routes.util_matches import add_match_to_db
 from pydantic_schemas.fixtures_schemas import MatchObject
+from api.admin_routes.util_leagues import get_leagues_list_from_db
 
 load_dotenv()
 
@@ -152,6 +153,9 @@ class FootballDataService():
     # FOOTBALL API ACTUAL FUNCTIONS #
 
     async def add_leagues(self , db : AsyncSession):
+        """
+        get a list of all leagues available in the api and adds them to the database
+        """
         try :
             headers = {
             "x-rapidapi-key": self.football_data_api_key,

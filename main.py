@@ -48,6 +48,7 @@ async def lifespan(app: FastAPI):
     
     setup_logging()
 
+    """
     # APScheduler initialization
     scheduler = AsyncIOScheduler(timezone=NAIROBI_TZ)
     scheduler.start()
@@ -64,13 +65,20 @@ async def lifespan(app: FastAPI):
         # Get database session for polling
         async for db in get_db():
             try:
-                await polling_manager.start()
+                await polling_manager.start(db)
+                break  # Only need one session
+            except Exception as e:
+                logger.error(f"Failed to start polling: {str(e)}", exc_info=True)
             finally:
                 await db.close()
     else:
         logger.info("Outside polling hours, waiting for 1pm to 3am polling window")
 
+    """
+
     yield  # Application is running
+
+    """
 
     # On application shutdown
     print('The application is shutting down now')
@@ -82,6 +90,7 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown(wait=True)
     logger.info("APScheduler shutdown")
     logger.info("Application shutdown complete")
+    """
 
 
 app = FastAPI(lifespan=lifespan)
