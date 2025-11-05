@@ -1,3 +1,4 @@
+from attr import exceptions
 from fastapi import HTTPException , status
 
 from db.models.model_leagues import League , PopularLeague
@@ -67,3 +68,54 @@ async def update_league_fixture_status_to_true(db : AsyncSession , league_id):
     await db.commit()
     await db.refresh(db_object)
     return db_object
+
+
+async def update_league_added_status_to_true_or_false(db: AsyncSession, league_id: int):
+    try:
+        query= select(League).where(League.id== league_id)
+        result= await db.execute(query)
+        db_league_object= result.scalars().first()
+
+        if db_league_object.fixture_added == False:
+            db_league_object.fixture_added= True
+        
+        if db_league_object.fixture_added == True:
+            db_league_object.fixture_added= False
+        
+        await db.commit()
+        await db.refresh(db_league_object)
+        return db_league_object
+
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"an error occured: update_league_added: {str(e)}",
+        exc_info=True)
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while updating leageu added status to true"
+        )
+
+
+async def delete_league_from_popular_leagues_table(db: AsyncSession, league_id: int):
+    try:
+        query= select(League).where(League.id== league_id)
+        result= await db.execute(query)
+        db_popular_league_object= result.scalars().first()
+
+        await db.delete(db_popular_league_object)
+        await db.commit()
+
+    except Exception as e:
+        await db.rollback()
+
+        logger.error(f"an error occured whle deleting leageu: {league_id} from the database: {str(e)}",
+        exc_info=True,
+        extra={
+            "affected_league": league_id,
+        })
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while deleting league from popular leagues in the database: {str(e)}"
+        )

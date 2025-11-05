@@ -14,6 +14,18 @@ from fastapi import HTTPException, status
 
 import math
 import logging
+import sys
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(funcName)s() | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
+    ]
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +44,7 @@ async def add_match_to_db(db : AsyncSession , match_data : MatchObject):
         outcome= match_data.outcome,
         home_score= match_data.home_score,
         away_score= match_data.away_score,
+        fixture_status= match_data.fixture_status,
     )
 
     db.add(db_object)
@@ -48,6 +61,7 @@ async def get_all_fixtures_from_db(db : AsyncSession , limit : int=100, page : i
     query= (
         select(Fixture, League.name.label("league_name"), League.logo_url.label("league_logo_url"))
         .join(League, Fixture.league_id == League.id)
+        .order_by(Fixture.match_date.asc()) # for sorting the data based on the dates they will be played
         .limit(limit)
         .offset(offset)
     )
@@ -75,9 +89,9 @@ async def get_all_fixtures_from_db(db : AsyncSession , limit : int=100, page : i
 
 
 """
-i dont think we will ever use this but for now lets just leave it there , we will decide to delete it or leave it in future
+i think this will only apply to the populare(available) leagues
 """
-async def get_fixtures_by_popular_league_from_db(db : AsyncSession , league_id : int):
+async def get_fixtures_by_leageu_id_from_db(db : AsyncSession , league_id : int):
     query= select(Fixture).where(Fixture.league_id == league_id)
     result = await db.execute(query)
     return result.scalars().all()
@@ -113,6 +127,8 @@ async def update_fixture_to_live_on_db(db : AsyncSession, match_id: int):
             detail=f"an error occured while updathing the fixture object to live on db, {str(e)}"
         )
 
+# for deletig many matches at once
+
 async def update_match_with_match_ended_data(db: AsyncSession, ended_match_fixture):
     """
     things to update: outcome, home_score, away_score, fixture_status
@@ -142,6 +158,73 @@ async def update_match_with_match_ended_data(db: AsyncSession, ended_match_fixtu
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while updating match with match ended data: {str(e)}"
+        )
+
+async def delete_match_from_db(db: AsyncSession, match_id: int) -> bool:
+    """
+    Deletes a match from the database by match_id
+    Returns True if successful, False if match not found
+    """
+    try:
+        # First check if the match exists
+        result = await db.execute(select(Fixture).filter(Fixture.match_id == match_id))
+        match = result.scalar_one_or_none()
+        
+        if not match:
+            return False
+            
+        await db.delete(match)
+        await db.commit()
+        return True
+        
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error deleting match {match_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting match: {str(e)}"
+        )
+
+
+async def delete_matches_by_league_id(db: AsyncSession, league_id: int):
+    """
+    Deletes all matches for a specific league
+    Returns a dictionary with the count of deleted matches and success status
+    """
+    try:
+
+        result = await db.execute(
+            select(Fixture).filter(Fixture.league_id == league_id)
+        )
+        matches = result.scalars().all()
+        
+        if not matches:
+            return {
+                "status": status.HTTP_200_OK,
+                "message": f"No matches found for league ID {league_id}",
+                "deleted_count": 0
+            }
+        
+        # Delete all matches in a single transaction
+        deleted_count = 0
+        for match in matches:
+            await db.delete(match)
+            deleted_count += 1
+        
+        await db.commit()
+        
+        return {
+            "status": status.HTTP_200_OK,
+            "message": f"Successfully deleted {deleted_count} matches for league ID {league_id}",
+            "deleted_count": deleted_count
+        }
+        
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error deleting matches for league {league_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting matches: {str(e)}"
         )
 
 # SOME UTILITY FUNCTIONS TO HELP THE DB_UTILITY_FUNCTION 

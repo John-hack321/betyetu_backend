@@ -12,7 +12,7 @@ from api.admin_routes.util_matches import update_fixture_to_live_on_db, update_m
 from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLIveMatch
 from services.caching_services.redis_client import add_live_match_to_redis, get_live_match_data_from_redis, get_live_matches_from_redis, get_popular_league_ids_from_redis, update_live_match_home_score, update_live_match_away_score, update_live_match_time
 from services.sockets.socket_services import send_live_data_to_users, update_match_to_live_on_frontend_with_live_data_too
-from services.football_services.football_data_api import football_data_service
+from services.football_services.football_data_api import football_data_api_service
 
 # doing better error handling starting from now on this file 
 
@@ -96,7 +96,7 @@ class LiveDataService():
                 # the first usage of the global football_data_service
                 
                 # TODO: define a pydantic fixture for this match end model from the api
-                fixture= await football_data_service.__get_fixture_by_match_id(item.matchId)
+                fixture= await football_data_api_service.__get_fixture_by_match_id(item.matchId)
                 db_fixture_object= await update_match_with_match_ended_data(db, fixture)
 
                 if not db_fixture_object:

@@ -9,7 +9,7 @@ from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
 from api.utils.dependancies import db_dependancy, user_depencancy
 from api.admin_routes.util_matches import get_all_fixtures_from_db
-from api.admin_routes.util_matches import get_fixtures_by_popular_league_from_db
+from api.admin_routes.util_matches import get_fixtures_by_leageu_id_from_db
 
 logger= logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ async def get_popular_leagues_fixtures(db : db_dependancy , user : user_depencan
 @router.get('/fixtures_by_leagues')
 async def get_fixtures_by_popular_league(db : db_dependancy , user : user_depencancy , league_id ):
     try :
-        db_fixture_by_popular_leagues_object = await get_fixtures_by_popular_league_from_db(db)
+        db_fixture_by_popular_leagues_object = await get_fixtures_by_leageu_id_from_db(db)
         if not db_fixture_by_popular_leagues_object:
             raise HTTPException(f'an error occured on the get_fixture_by_popular_league , object returned : {db_fixture_by_popular_leagues_object}')
     except Exception as e:

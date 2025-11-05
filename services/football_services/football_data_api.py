@@ -12,6 +12,7 @@ from api.admin_routes.util_leagues import add_league_to_db
 from api.admin_routes.util_matches import add_match_to_db
 from pydantic_schemas.fixtures_schemas import MatchObject
 from api.admin_routes.util_leagues import get_leagues_list_from_db
+from db.models.model_fixtures import FixtureStatus
 
 load_dotenv()
 
@@ -42,7 +43,7 @@ class FootballDataService():
                 name=item.get('name'),
                 localized_name=item.get('name'),  # Using name as localized_name if not provided
                 logo_url=item.get('logo', ''),  # Default empty string if logo not provided
-                fixture_added=False
+                fixture_added=False # once fixture is added this is made to true and the league is also added to popular leageu
             )
             
             db_league = await add_league_to_db(db, league_data)
@@ -88,7 +89,13 @@ class FootballDataService():
                         match_date = match_date.replace(tzinfo=None)
             home_score= item.get('home').get('score')
             away_score= item.get('away').get('score')
-            is_played= item.get('status').get('started')
+            is_played= item.get('status').get('finished')
+
+            # handle marking of whether the match is played or not
+            fixture_status= FixtureStatus.future
+            if is_played == True:
+                fixture_status= FixtureStatus.expired
+
             league_id= league_id
             
             outcome = await self.validate_outcome(home_team, away_team, home_score, away_score, is_played)
@@ -105,6 +112,7 @@ class FootballDataService():
                 'is_played' : is_played,
                 'outcome' : outcome,
                 'league_id' : league_id,
+                'fixture_status': fixture_status,
             }
 
             # appranetly in pydantic version 2 you have to use the model_validate when passing a dictionary to a pydantic basemodel
@@ -215,4 +223,4 @@ class FootballDataService():
         pass
 
 
-football_data_service= FootballDataService()
+football_data_api_service= FootballDataService()

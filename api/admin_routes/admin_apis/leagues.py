@@ -1,12 +1,14 @@
+from math import e
 from aiohttp import http_exceptions
 import fastapi
 from fastapi import APIRouter , status , HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.model_leagues import PopularLeague
+from pydantic_schemas.league_schemas import LeagueBaseModel
 from services.football_services.football_data_api import FootballDataService
-from api.admin_routes.util_leagues import add_league_to_popular_leagues, get_league_by_id_from_db, get_leagues_list_from_db, get_popular_leagues_from_db
+from api.admin_routes.util_leagues import add_league_to_popular_leagues, get_league_by_id_from_db, get_leagues_list_from_db, get_popular_leagues_from_db, update_league_added_status_to_true_or_false
 from api.utils.dependancies import db_dependancy
+from services.football_services.football_data_api import football_data_api_service
 
 import logging
 
@@ -68,56 +70,74 @@ async def add_leagues_to_system(db : db_dependancy):
             'error_message' : f'{e}'
         }
 
-@router.post('/admin/add_league_fixtures_to_database_thus_making_it_a_popular_league')
+@router.post('/add_league_fixtures_to_database_thus_making_it_a_popular_league')
 async def add_league_fixtures_to_database(db : db_dependancy , league_id : int):
     """
     when a league's data / fixtures is added to the database 
     then it is automaticaly a popular league as it will be added to popular leagues by default
     the popular leagues is there to prevent us from suffering the problem of 
     searching through the super huger list of leagues in the normal leagues table
-    """
-    # desired functionality 
-    #  add matches data of the leauge to the datbase , 
-    #  add the league to popular leagues too
-
+    """ 
     try :
-        football_api_service = FootballDataService()
-        try :
-            await football_api_service.add_fixutures_by_league_id(db ,league_id)
-            # if the league data has been added succesfuly we update a few other things as below : 
-            db_popular_league_object = await make_league_a_popular_league(db ,league_id)
-            if not db_popular_league_object:
-                logger.error(f'faile to make league : {league_id} a popular league')
-            updated_league_status_object = await make_league_a_popular_league(db , league_id)
-            if not updated_league_status_object:
-                logger.error(f"faile to update leagues status , object return is {updated_league_status_object}")
-            return {
-                "message" : f"league of league id {league_id} has been added to the database succesfuly "
-            }
-        except Exception as e:
-            logger.error(f'an unexpected error occurred on the FootballDataService {str(e)}', exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f'an unexpected error occurred on the FootballDataService: {str(e)}'
-            )
-    except Exception as e:
-        logger.error(f'an error occurred on the add_league_fixtures_to_database endpoint: {str(e)}', exc_info=True)
+        await football_data_api_service.add_fixutures_by_league_id(db ,league_id)
+
+        # after the data has been sourced and added to the database we them make the league a popular leageu
+
+        await add_league_to_popular_leagues(db, league_id)
+        
+        return {
+            "message" : f"league of league id {league_id} has been added to the database succesfuly "
+        }
+
+    except HTTPException:
+        await db.rollback()
+
+        logger.error(f"an error occured while adding leageu fixtures to the database: {str(e)}",
+        exc_info=True,
+        extra={})
+
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f'the add_league_fixtures_to_database_endpoint failed: {str(e)}'
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured whle adding league fixtures to the database, {str(e)}"
         )
 
 
 
 # utility function for the league endpoints
+
+"""
+handles both the process of: 
+1) updating the fixture added column on the league object to 
+2) adding the leageu to popular leagues table officialy
+"""
 async def make_league_a_popular_league(db : AsyncSession , league_id : int):
-    db_league_object = await get_league_by_id_from_db(db, league_id)
-    if not db_league_object:
-        logger.error(f'object returned from db was not expeced : {db_league_object}')
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR ,
-        detail=f"an error occured on make_league_a_popular_league")
-    db_league_object= PopularLeague(db_league_object)
-    db_popular_league_object = await add_league_to_popular_leagues(db)
-    return db_popular_league_object
+    try:
+        # first we update the league added column to true on the league object
+        # here we are updating it to true since we are adding matches to the system
+        db_league_object= await update_league_added_status_to_true_or_false(db, league_id)
+        if not db_league_object:
+            logger.error(f"object returned from db is undefined, make_league_a_popular_league")
 
+        # after doing that we need to add the leageu to popuare leagues table in the database
+        db_league_object= LeagueBaseModel(db_league_object)
+        db_popular_league_object= await add_league_to_popular_leagues(db,  db_league_object)
 
+        if not db_popular_league_object:
+            logger.error(f"populare leageu object returned from db in not as expected: make_leageu_a_popular_league")
+
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        await db.rollback()
+
+        logger.error(f"an error occured while making {league_id} a populare leageu, {str(e)}",
+        exc_info=True,
+        extra={
+            "affected_league_id": league_id
+        })
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while making league of league id : {league_id} a populre leageu: {str(e)}"
+        )

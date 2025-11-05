@@ -7,9 +7,9 @@ from sqlalchemy.orm import relationship
 import enum
 
 class FixtureStatus(enum.Enum):
-    live= 1
-    future= 2
-    expired= 3
+    live= "live"
+    future= "future"
+    expired= "expired"
 
 class Fixture(Base , TimeStamp):
     __tablename__ = "fixtures"
