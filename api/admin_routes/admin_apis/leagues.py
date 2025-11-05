@@ -16,7 +16,7 @@ logger= logging.getLogger(__name__)
 
 router = APIRouter(
     prefix='/admin/leagues',
-    tags=['leagues']
+    tags=['admin/leagues']
 )
 
 @router.get('/')
@@ -99,6 +99,29 @@ async def add_league_fixtures_to_database(db : db_dependancy , league_id : int):
         raise HTTPException(
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured whle adding league fixtures to the database, {str(e)}"
+        )
+
+
+# for leageus that are not directly available in the full leageus list like league of id number 42
+@router.post("/add_league_details_by_league_id")
+async def add_league_data_by_league_id(db: db_dependancy, league_id: int):
+    try:
+
+        await football_data_api_service.add_league_data_by_league_id(league_id, db)
+        
+    except HTTPException:
+        await db.rollback()
+        raise
+
+    except Exception as e:
+
+        logger.error(f"an error occured while adding league details by league id, {str(e)}", 
+        exc_info=True,
+        extra={})
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured wile adding league data by id: {str(e)}"
         )
 
 

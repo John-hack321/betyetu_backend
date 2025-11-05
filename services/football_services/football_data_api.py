@@ -1,4 +1,5 @@
 from datetime import datetime
+from urllib import response
 from dotenv import load_dotenv
 import os
 import aiohttp
@@ -13,6 +14,7 @@ from api.admin_routes.util_matches import add_match_to_db
 from pydantic_schemas.fixtures_schemas import MatchObject
 from api.admin_routes.util_leagues import get_leagues_list_from_db
 from db.models.model_fixtures import FixtureStatus
+from pydantic_schemas.league_schemas import LeagueBaseModel
 
 load_dotenv()
 
@@ -23,6 +25,7 @@ class FootballDataService():
         self.football_data_api_key= os.getenv('FOOTBALL_API_KEY')
         self.football_match_by_league_url= os.getenv('FOOTBALL_API_MATCHES_BY_LEAGUE_URL')
         self.football_all_leagues_url= os.getenv('FOOTBALL_API_ALL_LEAGUES_URL')
+        self.solo_league_api_url= os.getenv('SOLO_LEAGUE_API_URL')
 
     # FOOTBALL API UTILITY FUNCTIONS #
     # league utility functions 
@@ -52,6 +55,32 @@ class FootballDataService():
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Unable to add league with id {item.get('id')} and name: {item.get('name')} to the database"
                 )
+
+    async def __parse_solo_league_object(self, response_data):
+
+        try:
+            id= response_data.get("response").get("leagues").get("id")
+            name= response_data.get("response").get("leagues").get("shortName")
+            localized_name= response_data.get("response").get("leagues").get("shortName")
+            logo_url= ""
+            fixture_added= False
+
+            return {
+                "id": id,
+                "name": name,
+                "localized_name": localized_name,
+                "logo_url": logo_url,
+                "fixture_added": fixture_added,
+            }
+
+
+        except Exception as e:
+            logger.error(f"an error occured while parsing solo league object: {str(e)}")
+
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"an error occured while parsing the solo leageu object: {str(e)}"
+            )
 
     # fixture utility functions
     async def validate_outcome(self ,home : str, away : str, home_score : str, away_score : str, is_played : bool):
@@ -159,6 +188,36 @@ class FootballDataService():
 
 
     # FOOTBALL API ACTUAL FUNCTIONS #
+
+    #for leageu not in the general leageu fetching
+    async def add_league_data_by_league_id(self, league_id: int, db: AsyncSession):
+        try:
+
+            headers = {
+                'x-rapidapi-key': "acb3433c53msh05ecefe0d28a671p13e83fjsn1e3195a130d9",
+                'x-rapidapi-host': "free-api-live-football-data.p.rapidapi.com"
+            }
+
+            api_response= await self.make_get_api_call(f"{self.solo_league_api_url}{league_id}",
+            headers=headers,
+            params= None)
+
+            parsed_solo_league_response=await self.__parse_solo_league_object(api_response)
+
+            league_data= LeagueBaseModel(**parsed_solo_league_response)
+            db_league_object= await add_league_to_db(db, league_data)
+            if not db_league_object:
+                logger.error(f"object returned from db is not as expected: __add_league_data_by_league_id")
+
+
+        except Exception as e:
+            logger.error(f"an error occured while adding leageu by league id to the database, {str(e)}",
+            exc_info=True)
+
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"an error occured whle adding leageu data by id to system: {str(e)}"
+            )
 
     async def add_leagues(self , db : AsyncSession):
         """
