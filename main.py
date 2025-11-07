@@ -12,7 +12,7 @@ import sys
 from api.utils.dependancies import db_dependancy
 from db.db_setup import Base, engine, get_db
 from db.db_setup import create_database, drop_database
-from api import api_auth, api_users, api_transactions, api_fixtures
+from api import api_auth, api_users, api_transactions, api_fixtures, api_leagues, api_stakes
 from api.admin_routes.admin_apis import leagues, fixtures
 from logging_config import setup_logging
 from services.polling_services.polling_client import schedule_daily_polling, should_start_polling_now, polling_manager
@@ -110,3 +110,5 @@ app.include_router(api_transactions.router)
 app.include_router(leagues.router)
 app.include_router(api_fixtures.router)
 app.include_router(fixtures.router)
+app.include_router(api_leagues.router)
+app.include_router(api_stakes.router)

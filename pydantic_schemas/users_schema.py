@@ -27,6 +27,9 @@ class Token(BaseModel):
     token_type : str   
 
 # actually according to what im seeing right now , we can also respond to api calls using other pydantic models for those specific response like this one here for sendiing user data 
-class UserProfileResponse(UserBase):
-    account_balance : int
+class UserProfileResponse(BaseModel):
+    username: str
+    email: Optional[str] = None
+    phone: str
+    account_balance: int
     

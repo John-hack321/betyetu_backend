@@ -14,6 +14,7 @@ code red things that need critical fixing or doing:
 
 big things but for later on
     make the fixtures and league data to include even the season data (eg. 2024/2025 season shit)
+    since im still in the dev phase, write a function/ endpoint that does outcome cleanup by checking for all of the matches that hve been played yet they havent been flagged as expired and make the expire once and for all 
 
 
 

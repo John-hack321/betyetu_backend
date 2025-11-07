@@ -14,7 +14,10 @@ from api.admin_routes.util_matches import add_match_to_db
 from pydantic_schemas.fixtures_schemas import MatchObject
 from api.admin_routes.util_leagues import get_leagues_list_from_db
 from db.models.model_fixtures import FixtureStatus
+from db.models.model_leagues import League
 from pydantic_schemas.league_schemas import LeagueBaseModel
+from sqlalchemy.future import select
+from typing import List, Dict, Any
 
 load_dotenv()
 
@@ -22,10 +25,11 @@ logger= logging.getLogger(__name__)
 
 class FootballDataService():
     def __init__(self):
-        self.football_data_api_key= os.getenv('FOOTBALL_API_KEY')
-        self.football_match_by_league_url= os.getenv('FOOTBALL_API_MATCHES_BY_LEAGUE_URL')
-        self.football_all_leagues_url= os.getenv('FOOTBALL_API_ALL_LEAGUES_URL')
-        self.solo_league_api_url= os.getenv('SOLO_LEAGUE_API_URL')
+        self.football_data_api_key = os.getenv('FOOTBALL_API_KEY')
+        self.football_match_by_league_url = os.getenv('FOOTBALL_API_MATCHES_BY_LEAGUE_URL')
+        self.football_all_leagues_url = os.getenv('FOOTBALL_API_ALL_LEAGUES_URL')
+        self.solo_league_api_url = os.getenv('SOLO_LEAGUE_API_URL')
+        self.popular_leagues_url = "https://free-api-live-football-data.p.rapidapi.com/football-popular-leagues"
 
     # FOOTBALL API UTILITY FUNCTIONS #
     # league utility functions 
@@ -219,7 +223,73 @@ class FootballDataService():
                 detail=f"an error occured whle adding leageu data by id to system: {str(e)}"
             )
 
-    async def add_leagues(self , db : AsyncSession):
+    async def fetch_popular_leagues(self) -> List[Dict[str, Any]]:
+        """Fetch the list of popular leagues from the API"""
+        try:
+            headers = {
+                'x-rapidapi-key': self.football_data_api_key,
+                'x-rapidapi-host': "free-api-live-football-data.p.rapidapi.com"
+            }
+
+            response = await self.make_get_api_call(
+                self.popular_leagues_url,
+                headers=headers,
+                params=None
+            )
+
+            if response and response.get('status') == 'success':
+                return response.get('response', {}).get('popular', [])
+            return []
+
+        except Exception as e:
+            logger.error(f"Error fetching popular leagues: {str(e)}", exc_info=True)
+            return []
+
+    async def add_popular_leagues(self, db: AsyncSession) -> bool:
+        """Fetch popular leagues and add them to the database if they don't exist"""
+        try:
+            popular_leagues = await self.fetch_popular_leagues()
+            if not popular_leagues:
+                logger.warning("No popular leagues found in the API response")
+                return False
+
+            added_count = 0
+            for league in popular_leagues:
+                # Check if league already exists
+                existing_league = await db.execute(
+                    select(League).where(League.id == league.get('id'))
+                )
+                existing_league = existing_league.scalar_one_or_none()
+
+                if not existing_league:
+                    # Create league data matching your LeagueBaseModel
+                    league_data = {
+                        "id": league.get('id'),
+                        "name": league.get('name'),
+                        "localized_name": league.get('localizedName', league.get('name')),
+                        "logo_url": league.get('logo', ''),
+                        "fixture_added": False
+                    }
+                    
+                    # Add league to database
+                    db_league = League(**league_data)
+                    db.add(db_league)
+                    added_count += 1
+
+            if added_count > 0:
+                await db.commit()
+                logger.info(f"Successfully added {added_count} popular leagues to the database")
+            else:
+                logger.info("No new popular leagues to add")
+
+            return True
+
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Error adding popular leagues: {str(e)}", exc_info=True)
+            return False
+
+    async def add_leagues(self, db: AsyncSession):
         """
         get a list of all leagues available in the api and adds them to the database
         """
@@ -249,28 +319,52 @@ class FootballDataService():
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR ,
             detail=f"the add leagues service failed : error message :  {e}")
 
-    async def add_fixutures_by_league_id(self ,db : AsyncSession, league_id):
+    async def add_fixutures_by_league_id(self, db: AsyncSession, league_id: int):
         """
         Adds the fixtures to the database according to the league id
         """
-        headers = {
-            "x-rapidapi-key": self.football_data_api_key,
-            "x-rapidapi-host": "free-api-live-football-data.p.rapidapi.com"
-        }
-
-        query_string={"leagueid": league_id}
-
-        response_data = await self.make_get_api_call(self.football_match_by_league_url, headers, query_string)
-
-        parsed_match_list_data = await self.parse_fixtures_data(response_data, league_id)
-
         try:
-            await self.add_parsed_matches_object_to_database(db, parsed_match_list_data)
-            return True
+            # First, check if the league exists in the database
+            existing_league = await db.execute(
+                select(League).where(League.id == league_id)
+            )
+            existing_league = existing_league.scalar_one_or_none()
+
+            # If the league doesn't exist, add it first
+            if not existing_league:
+                logger.info(f"League with ID {league_id} not found in database. Attempting to add it...")
+                await self.add_league_data_by_league_id(league_id, db)
+                logger.info(f"Successfully added league with ID {league_id} to the database")
+
+            headers = {
+                "x-rapidapi-key": self.football_data_api_key,
+                "x-rapidapi-host": "free-api-live-football-data.p.rapidapi.com"
+            }
+
+            query_string = {"leagueid": league_id}
+            response_data = await self.make_get_api_call(self.football_match_by_league_url, headers, query_string)
+            parsed_match_list_data = await self.parse_fixtures_data(response_data, league_id)
+
+            try:
+                await self.add_parsed_matches_object_to_database(db, parsed_match_list_data)
+                logger.info(f"Successfully added fixtures for league ID {league_id}")
+                return True
+            except Exception as e:
+                logger.error(f'Failed to add fixtures to database: {str(e)}', exc_info=True)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to add fixtures to database: {str(e)}"
+                )
+
+        except HTTPException:
+            # Re-raise HTTP exceptions as they are
+            raise
         except Exception as e:
-            logger.error(f'an unexpected error occured on the add_parsed_matches_object_to_database {str(e)}', exc_info=True)
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR ,
-            detail= f"an error occured on on the_add_fixtures_list_object_to_database {str(e)}")
+            logger.error(f'Unexpected error in add_fixutures_by_league_id: {str(e)}', exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"An unexpected error occurred: {str(e)}"
+            )
 
     """
     will be used for getting fixtures by id from the api source

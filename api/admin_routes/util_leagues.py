@@ -44,14 +44,36 @@ async def get_popular_leagues_from_db(db : AsyncSession ):
     result = await db.execute(query)
     return result.scalars().all()
 
-async def add_league_to_popular_leagues(db : AsyncSession , league_object : LeagueBaseModel):
-    db_object = PopularLeague(
-        id=league_object.id,
-        name=league_object.name,
-        localized_name=league_object.localized_name,
-        logo_url=league_object.logo_url,
-        fixture_add=True,
+async def add_league_to_popular_leagues(db: AsyncSession, league_id: int):
+    # First, get the league from the database
+    league = await get_league_by_id_from_db(db, league_id)
+    
+    if not league:
+        logger.error(f"League with ID {league_id} not found in the database")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"League with ID {league_id} not found"
+        )
+    
+    # Check if the league is already in the popular leagues
+    existing_popular_league = await db.execute(
+        select(PopularLeague).where(PopularLeague.id == league_id)
     )
+    existing_popular_league = existing_popular_league.scalar_one_or_none()
+    
+    if existing_popular_league:
+        logger.info(f"League with ID {league_id} is already in popular leagues")
+        return existing_popular_league
+    
+    # Create a new PopularLeague entry
+    db_object = PopularLeague(
+        id=league.id,
+        name=league.name,
+        localized_name=league.localized_name,
+        logo_url=league.logo_url,
+        fixture_added=True,
+    )
+    
     db.add(db_object)
     await db.commit()
     await db.refresh(db_object)

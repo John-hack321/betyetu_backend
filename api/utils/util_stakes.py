@@ -1,33 +1,83 @@
+from fastapi import HTTPException
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio.exc import AsyncContextAlreadyStarted
 from sqlalchemy.future import select
+from fastapi import status, HTTPException
 
 from pydantic_schemas.stake_schemas import GuestStakeJoiningPayload, OwnerStakeInitiationPayload, StakeBaseModel
 from db.models.model_stakes import Stake
-from pydantic_schemas.stake_schemas import stake_status
+from pydantic_schemas.stake_schemas import StakeStatus
+
+import logging
+import sys
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(funcName)s() | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
+    ]
+)
+
+logger= logging.getLogger(__name__)
 
 """
 I set the stake initiation payload type to the stake base model because with pydantic this it can handle
 both occasions for creating and joining a stake object 
 """
-async def create_stake_object(db: AsyncSession, stake_data: StakeBaseModel, user_id: int, invite_code: str):
-    db_object= Stake(
-        user_id= user_id,
-        match_id= stake_data.match_id,
-        placement= stake_data.placement,
-        amount= stake_data.amount,
-        invite_code= invite_code,
-        stake_status= stake_status.pending,
-    )
-    db.add(db_object)
-    await db.commit()
-    await db.refresh(db_object)
-    return db_object
+async def create_stake_object(db: AsyncSession, stake_data: OwnerStakeInitiationPayload, user_id: int, invite_code: str):
+    try:
+        print(f"the create stake object util function has been reached")
+        db_object= Stake(
+            user_id= user_id,
+            match_id= stake_data.matchId,
+            home= stake_data.home,
+            away= stake_data.away,
+            placement= stake_data.placement,
+            amount= stake_data.stakeAmount,
+            invite_code= invite_code,
+            stake_status= StakeStatus.pending,
+        )
+        db.add(db_object)
+        await db.commit()
+        await db.refresh(db_object)
+        print(f"stake object for user id {user_id} as been created")
+        return db_object
+    except Exception as e:
+        await db.rollback()
+
+        logger.error(f"an error occured whle creating a stake object: {str(e)}",
+        exc_info=True,
+        extra={
+            "affected_user": user_id
+        })
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an erro occured while creating stake object"
+        )
 
 async def get_stake_by_invite_code_from_db(db: AsyncSession, invite_code: str):
-    query= select(Stake).where(Stake.invite_code == invite_code)
-    result= await db.execute(query)
-    return result.scalars().first()
+    try:
+        query= select(Stake).where(Stake.invite_code == invite_code)
+        result= await db.execute(query)
+        return result.scalars().first()
+
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"an error occured while gettnig stake by invite code from db: {str(e)}",
+        exc_info=True,
+        extra={
+            "invite_code": invite_code
+        })
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while fetching stake by invite_code from the db {str(e)}"
+        )
 
 """
 add the guest stake data to the stakes table
@@ -55,3 +105,27 @@ async def get_user_stakes_where_user_is_guest_from_db(db: AsyncSession, user_id:
     query= select(Stake).where(Stake.invited_user_id== user_id)
     result= await db.execute(query)
     return result.scalars().all()
+
+async def delete_stake_from_db_by_invite_code(db: AsyncSession, invite_code: str):
+    try:
+        query= select(Stake).where(Stake.invite_code == invite_code)
+        result= await db.execute(query)
+        db_stake_objet= result.scalars().first()
+
+        # we then delete from the database
+        await db.delete(db_stake_objet)
+        await db.commit()
+
+    except Exception as e:
+        await db.rollback()
+
+        logger.error(f"an error occured while trying to delete stake of invite code: {invite_code} from db: {str(e)}",
+        exc_info=True,
+        extra={
+            "invite_code": invite_code
+        })
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while trying to delete stake by invite code from db: {str(e)}"
+        )

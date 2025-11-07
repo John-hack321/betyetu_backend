@@ -60,6 +60,7 @@ async def get_all_fixtures_from_db(db : AsyncSession , limit : int=100, page : i
     total= await db.scalar(select(func.count()).select_from(Fixture))
     query= (
         select(Fixture, League.name.label("league_name"), League.logo_url.label("league_logo_url"))
+        .where(Fixture.fixture_status != FixtureStatus.expired)
         .join(League, Fixture.league_id == League.id)
         .order_by(Fixture.match_date.asc()) # for sorting the data based on the dates they will be played
         .limit(limit)
@@ -249,6 +250,7 @@ async def convert_fixtures_result_object_from_to_db_desired_return_object(rows):
             parsed_fixture_object['home_team']= fixture_dict.get('home_team')
             parsed_fixture_object['away_team_id']= fixture_dict.get('away_team_id')
             parsed_fixture_object['away_team']= fixture_dict.get('away_team')
+            parsed_fixture_object['fixture_status']= fixture_dict.get('fixture_status')
 
             fixtures_with_league_data.append(parsed_fixture_object)
         return fixtures_with_league_data

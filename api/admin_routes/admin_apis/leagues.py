@@ -9,6 +9,7 @@ from services.football_services.football_data_api import FootballDataService
 from api.admin_routes.util_leagues import add_league_to_popular_leagues, get_league_by_id_from_db, get_leagues_list_from_db, get_popular_leagues_from_db, update_league_added_status_to_true_or_false
 from api.utils.dependancies import db_dependancy
 from services.football_services.football_data_api import football_data_api_service
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
 
@@ -125,6 +126,32 @@ async def add_league_data_by_league_id(db: db_dependancy, league_id: int):
         )
 
 
+
+@router.post("/add_popular_leagues")
+async def add_popular_leagues(db: db_dependancy):
+    """
+    Fetch popular leagues from the API and add them to the database.
+    Only adds leagues that don't already exist in the database.
+    """
+    try:
+        success = await football_data_api_service.add_popular_leagues(db)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to add popular leagues"
+            )
+        return {"status": "success", "message": "Popular leagues added successfully"}
+        
+    except HTTPException as he:
+        await db.rollback()
+        raise he
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error in add_popular_leagues endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while adding popular leagues: {str(e)}"
+        )
 
 # utility function for the league endpoints
 

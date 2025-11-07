@@ -40,6 +40,7 @@ class StakeInitiationPayload(BaseModel):
     home: str
     away: str
 
+# this is what the user(stake_owner) will be sending when initiating a stake
 class OwnerStakeInitiationPayload(BaseModel):
     placement: str
     stakeAmount: int
