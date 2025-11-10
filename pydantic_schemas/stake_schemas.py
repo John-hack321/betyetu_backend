@@ -32,6 +32,7 @@ class StakeBaseModel(BaseModel):
     invite_code: str
     stake_status: StakeStatus
     winner: Optional[StakeWinner]= None
+    possibleWin: Optional[int]= None
 
 class StakeInitiationPayload(BaseModel):
     match_id: int
@@ -50,8 +51,8 @@ class OwnerStakeInitiationPayload(BaseModel):
 
 class GuestStakeJoiningPayload(BaseModel):
     stakeId: int
-    stakeAmount: str
-    placement: int
+    stakeAmount: int
+    placement: str
 
 
 class StakeOwner(BaseModel):
@@ -73,12 +74,16 @@ class StakeDataObject(BaseModel): # this one if for the fetching of stake data w
     stakeGeust: StakeGeust
 
 class StakeObject(BaseModel): # this one if for the fetching of stakes from the db for showcase on frontend
+    stakeId: int
     home: str
     away: str
     stakeAmount: int
-    stakeStatus: StakeStatus
+    stakeStatus: StakeStatus | str
     stakeResult: str
     date: str
+    possibleWin: str | int
+    inviteCode: Optional[str]= None
+    placement: str
 
 class StakesReturnObject(BaseModel):
     status: str

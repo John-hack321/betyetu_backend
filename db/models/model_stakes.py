@@ -30,6 +30,7 @@ class Stake(Base, TimeStamp):
     invite_code= Column(String, nullable=False)
     stake_status= Column(Enum(StakeStatus), nullable=False, default=StakeStatus.pending)
     winner= Column(Enum(StakeWinner), nullable=True)
+    possibleWin= Column(Integer, nullable=True)
 
     user = relationship("User", back_populates='owned_stakes', foreign_keys=[user_id])
     invited_user = relationship("User", back_populates='invited_stakes', foreign_keys=[invited_user_id])

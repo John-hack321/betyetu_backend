@@ -9,9 +9,18 @@ from pydantic import BaseModel
 
 from api.utils.util_accounts import get_account_data_by_user_id, increment_account_balance
 from pydantic_schemas.stake_schemas import GuestStakeJoiningPayload, OwnerStakeInitiationPayload
-from api.utils.util_stakes import create_stake_object, delete_stake_from_db_by_invite_code, get_stake_by_invite_code_from_db
+from api.utils.util_stakes import create_stake_object, delete_stake_from_db_by_invite_code, get_stake_by_invite_code_from_db, get_stake_by_stake_id_from_db, set_possible_win_and_add_to_db
 from api.utils.util_accounts import subtract_stake_amount_from_db
 from api.utils.util_stakes import add_guest_stake_data_to_db
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(funcName)s() | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
+    ]
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,22 +78,62 @@ class StakingService:
 
     async def join_initiated_stake(self, db: AsyncSession, guest_stake_data: GuestStakeJoiningPayload):
         # confirm if the account balance can accomodate the stake amount
-        account_balance_confirmed= await self.__confirm_account_balance()
-        if account_balance_confirmed:
-            try:
-                await self.__update_account_balance_based_on_stake(db, self.user_id, guest_stake_data.stakeAmount)
-                await self.__add_guest_stake_data_to_database(db, self.user_id, guest_stake_data)
+        # i tink before confirming the account balance we also need to make user the the guest is not the owner at the same time
+        
+        db_stake_data= await get_stake_by_stake_id_from_db(db, guest_stake_data.stakeId)
+        # check if the user ids match for guest and the owner
+        if self.user_id == db_stake_data.user_id:
+            logger.error(f"the owner of id {self.user_id} is trying to joing their own stake as a guest too")
 
-                return { # for now lets only return that we will find more to return later on
-                    "status": status.HTTP_200_OK,
-                    "message": "the user joined the stake succesfuly",
+            raise HTTPException(
+                status_code= status.HTTP_403_FORBIDDEN,
+                detail=f"user is the owner of the stake they are trying to join"
+            )
+
+        # we also need to ensure that the owner and the guest dont chose the same team
+        if guest_stake_data.placement == db_stake_data.placement:
+            logger.error(f"the guest and the stake owner cannot place on the same stake")            
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "GUEST_OWNER_SIMILAR_STAKE_PLACEMENT_ERROR",
+                    "message": "the guest cannot place on the same placement as the owenr"
                 }
-            except Exception as e:
-                logger.error(f'an error occured in the join initiated stake function {str(e)}')
-        return {
-            "status": status.HTTP_406_NOT_ACCEPTABLE,
-            "detail": "the account balance cannot support the requested stake amount"
-        }
+            )
+
+        account_balance_confirmed= await self.__confirm_account_balance(self.user_id, guest_stake_data.stakeAmount, db)
+
+        if account_balance_confirmed == False:
+            logger.error(f"the users accout balance is not enough to support this stake amount", exc_info=True)
+
+            raise HTTPException(
+                status_code=status.HTTP_406_NOT_ACCEPTABLE,
+                detail=f"the users account balance cannot support stake of that size"
+            )
+
+        try:
+            await self.__update_account_balance_based_on_stake(db, self.user_id, guest_stake_data.stakeAmount)
+            await self.__add_guest_stake_data_to_database(db, self.user_id, guest_stake_data)
+            await set_possible_win_and_add_to_db(db, guest_stake_data.stakeId)
+
+            return { # for now lets only return that we will find more to return later on
+                "status": status.HTTP_200_OK,
+                "message": "the user joined the stake succesfuly",
+            }
+
+        except HTTPException:
+            raise # raise previous errors
+
+        except Exception as e:
+            logger.error(f'an error occured in the join initiated stake function {str(e)}',
+            exc_info=True,
+            detail={})
+
+            raise HTTPException(
+                status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"an erro occured while trying to joing an initiated stake as a guest"
+            )
 
 
     async def owner_cancel_stake(self, db: AsyncSession, invite_code: str):
@@ -127,7 +176,8 @@ class StakingService:
             )
 
 
-    # utilit functions for initiating stakes
+    # utilit functions for initiating stakes and joining stakes
+
     """
     checks is the account balance can handle the staking request amount
     get user account data , compares the account balance , and returns either true or false

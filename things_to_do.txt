@@ -1,13 +1,17 @@
 short but lazy things that i need to do before i forget:
+    find a way to make sure that the possible win calculation always returns whole numbers only and not decimals in their returns
     create an ended fixture pydantic modelf for handling the ended match logic
     confirm if i need to make the match service instace global like the polling service so that i dont have to call it each time in a different place
     confirm if i have done the db_dependancy thing well
 
 big things that need to be done 
+    make it so that both users have to place the same stake amount for it all to work
     need to understane the inner working of alembic so that i avoid falling into alembic pitfalls and all
     optimize the stakes endpoint to make it more time effeicient and less resource intensive
 
 code red things that need critical fixing or doing:
+    find a way to implement atomicity on alot of processes
+    solve the stake data processing service issue  of returning all matches as lost even the ones that haven't been played yet
     find a way to send the ended match data to the frontend well with respect to redis
     find a way to remove the ended matches from redis
 
@@ -31,6 +35,5 @@ completed stuff :
 3. find a way to sort the stakes data before sending back to the frontend
 4. fix the database alembic versioning issues with regards to Stake model and other modles soon to come (veryy urgent)
 3. start using redis on the match processing function in live data services
-4. learn and find out if im doing error handling the right way 
-
-
+4. learn and find out if im doing error handling the right way
+5. find a way to prevent the stake owner from being the stake guest

@@ -83,15 +83,32 @@ async def get_stake_by_invite_code_from_db(db: AsyncSession, invite_code: str):
 add the guest stake data to the stakes table
 """
 async def add_guest_stake_data_to_db(db: AsyncSession, user_id: int, guest_stake_data: GuestStakeJoiningPayload):
-    query= select(Stake).where(Stake.id == guest_stake_data.stakeId)
-    result= await db.execute(query)
-    db_object= result.scalars().first()
-    db_object.invited_user_amount= guest_stake_data.stakeAmount
-    db_object.placement= guest_stake_data.placement
-    db_object.invited_user_id= user_id
-    await db.commit()
-    await db.refresh(db_object)
-    return db_object
+    try:
+        query= select(Stake).where(Stake.id == guest_stake_data.stakeId)
+        result= await db.execute(query)
+        db_object= result.scalars().first()
+        db_object.invited_user_amount= guest_stake_data.stakeAmount
+        db_object.invited_user_placement= guest_stake_data.placement
+        db_object.invited_user_id= user_id
+
+        # in this process we also need to set the value of the stake to successful too
+        db_object.stake_status= StakeStatus.successful
+        
+        await db.commit()
+        await db.refresh(db_object)
+        return db_object
+
+    except Exception as e:
+        await db.rollback()
+
+        logger.error(f"an error occured while adding the guest stake data to the database: {str(e)}",
+        exc_info=True,
+        extra= {"affected user": user_id})
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while adding guest stake data to the database, {str(e)}"
+        )
 
 """
 returns a list of stake objects that were created by the user
@@ -129,3 +146,53 @@ async def delete_stake_from_db_by_invite_code(db: AsyncSession, invite_code: str
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while trying to delete stake by invite code from db: {str(e)}"
         )
+
+async def get_stake_by_stake_id_from_db(db: AsyncSession, stake_id: int):
+    try:
+        query= select(Stake).where(Stake.id== stake_id)
+        result= await db.execute(query)
+        return result.scalars().first()
+
+    except Exception as e:
+        logger.error(f"an error occurd while fetching stake data from the database: {str(e)}",
+        exc_info=True,
+        extra={
+            "affected_stake": stake_id
+        })
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured whle fetching stake by id from the database"
+        )
+
+async def set_possible_win_and_add_to_db(db: AsyncSession, stake_id: int):
+    try:
+        query= select(Stake).where(Stake.id== stake_id)
+        result= await db.execute(query)
+        db_stake_object= result.scalars().first()
+
+        # we as the system provider we get a 10% cut from all stake withdrawals from the system
+        # so possible win is there for 90 % of the amount
+        owner_amount= db_stake_object.amount
+        guest_amount= db_stake_object.invited_user_amount
+
+        possible_win= 0.9 * (owner_amount + guest_amount) # find a way to truncate this amount so that we dont have decimals in any way
+
+        db_stake_object.possibleWin= possible_win
+
+        await db.commit()
+        await db.refresh(db_stake_object)
+
+        return db_stake_object
+
+    except Exception as e:
+        await db.rollback()
+
+        logger.error(f"an error occured while setting possible win",
+         exc_info=True,
+         extra={"affected_stake": stake_id})
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while setting possible win to stake of stake id: {stake_id}"
+         )

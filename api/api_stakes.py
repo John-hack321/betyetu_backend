@@ -1,6 +1,7 @@
 from fastapi import status, HTTPException, APIRouter
 
 import logging
+import sys
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.util import expand_column_list_from_order_by
@@ -13,6 +14,15 @@ from services.staking_service.staking_service import StakingService, inviteCodeM
 from pydantic_schemas.stake_schemas import StakeObject
 from api.utils.util_stakes import get_user_stakes_where_user_is_owner_from_db, get_user_stakes_where_user_is_guest_from_db
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(funcName)s() | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
+    ]
+)
+
 logger= logging.getLogger(__name__)
 
 router= APIRouter(
@@ -21,7 +31,7 @@ router= APIRouter(
 )
 
 @router.get('/get_stake_data')
-async def get_stake_data_by_invite_code(db: db_dependancy, invite_code: str):
+async def get_stake_data_by_invite_code(db: db_dependancy, user: user_depencancy, invite_code: str):
     try :
         db_object= await get_stake_by_invite_code_from_db(db, invite_code)
         if not db_object:
@@ -78,6 +88,8 @@ async def cancel_stake_placement_stake_owner_scenario(db: db_dependancy, user: u
     try:
         staking_service= StakingService(user.get("user_id"))
         cancellation_response= await staking_service.owner_cancel_stake()
+        
+        return cancellation_response
 
     except HTTPException:
         raise
@@ -114,15 +126,26 @@ async def join_initiated_stake(db : db_dependancy, user: user_depencancy, guest_
 async def get_user_stakes(db: db_dependancy, user: user_depencancy):
     try:
         db_owner_stakes= await get_user_stakes_where_user_is_owner_from_db(db, user.get('user_id'))
-        if not db_owner_stakes:
+        if db_owner_stakes == None:
             logger.error(f'an error occured db_owner_stakes: object returned is not expected, object return : {db_owner_stakes}')
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"failed to get woner stakes from the database"
+            )
+
         db_guest_stakes= await get_user_stakes_where_user_is_guest_from_db(db, user.get('user_id'))
-        if not db_guest_stakes:
+        if db_guest_stakes == None:
             logger.error(f'an error occured __db_guest-stakes: object returned is not expected: object returned : {db_guest_stakes}')
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"failed to get guest stakes from the database"
+            )
 
         stakes_return_data= await process_stakes_data(db_owner_stakes, db_guest_stakes)
+        print(f"stake data to be sent back to the use is {stakes_return_data.stakeData}")
 
-        return stakes_return_data
+        # TODO: define a better way \ find a way to return the stakes data well with better handling
+        return stakes_return_data.stakeData
 
     except Exception as e:
         logger.error(f"an unexpected error occured: __get_user_stakes: detail: {str(e)}", exc_info=True)
@@ -150,12 +173,29 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
         # loop through the owner stakes to determine which stakes the user won
         try:
             for item in owner_stakes:
-                if item.winner == StakeWinner.owner:
-                    result = 'won'
-                else: 
-                    result = "lost"
+                if item.winner != None:
+                    if item.winner == StakeWinner.owner:
+                        result = 'won'
+                    else: 
+                        result = "lost"
+
+                result= "pending"
                 # Convert the stake status to the appropriate enum value
-                status_value = 'pending' if item.stake_status == 0 else 'successful'
+
+                status_value="pending"
+
+                print(f"the value fo stake status from the database before manipulation is : {item.stake_status}")
+                if item.stake_status == StakeStatus.pending:
+                    status_value= "pending"
+                elif item.stake_status == StakeStatus.successful:
+                    status_value= "successful"
+                print(f"analys of stake status hs been done and the value of the stakeStatus has been set to {status_value}")
+
+                possible_win: str | int= 0
+                if item.possibleWin== None:
+                    possible_win= "pending"
+                else:
+                    possible_win= item.possibleWin
                 
                 data = StakeObject(
                     stakeId=item.id,
@@ -165,7 +205,13 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                     stakeStatus=status_value,
                     stakeResult=result,
                     date=item.created_at.isoformat(),
+                    possibleWin=possible_win,
+                    inviteCode= item.invite_code,
+                    placement= item.placement,
                 )
+
+                print(f"stake data to be sent is {data.stakeAmount, data.away, data.home, data.stakeAmount, data.stakeResult, data.stakeStatus, data.date, data.stakeId}")
+
                 general_stakes_object.stakeData.append(data)
         except Exception as e:  # Properly catch the exception
             logger.error(f'An error occurred in __process_stakes_data while processing owner stakes: {str(e)}')
@@ -177,12 +223,29 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
         # loop through the guest stakes now
         try: 
             for item in guest_stakes:
-                if item.winner == StakeWinner.guest:
-                    result = 'won'
-                else: 
-                    result = "lost"
-                # Convert the stake status to the appropriate enum value
-                status_value = 'pending' if item.stake_status == 0 else 'successful'
+                if item.winner != None: # we have to do this so that if the colum is blank we dont asgn winners or losser
+                    if item.winner == StakeWinner.guest:
+                        result = 'won'
+                    else: 
+                        result = "lost"
+
+                result="pending"
+
+                status_value= "pending"
+
+                print(f"the value fo stake status from the database before manipulation is : {item.stake_status}")
+                if item.stake_status == StakeStatus.pending:
+                    status_value= "pending"
+                elif item.stake_status == StakeStatus.successful:
+                    status_value= "successful"
+
+                possible_win: str | int= 0
+                if item.possibleWin== None:
+                    possible_win= "pending"
+                else:
+                    possible_win= item.possibleWin
+                
+                print(f"analys of stake status hs been done and the value of the stakeStatus has been set to {status_value}")
                 
                 data = StakeObject(
                     stakeId=item.id,
@@ -192,7 +255,12 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                     stakeStatus=status_value,
                     stakeResult=result,
                     date=item.created_at.isoformat(),
+                    possibleWin= possible_win,
+                    placement= item.invited_user_placement,
                 )
+
+                print(f"stake data to be sent is {data.stakeAmount, data.away, data.home, data.stakeAmount, data.stakeResult, data.stakeStatus, data.date, data.stakeId}")
+
                 general_stakes_object.stakeData.append(data)
         except Exception as e:
             logger.error(f'An error occurred in __process_stakes_data while processing guest stakes: {str(e)}')
@@ -204,7 +272,7 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
         #before we return the data we will sort by the time of creation: created_at
         general_stakes_object.stakeData.sort(key=lambda x: x.date, reverse=True)
         
-        general_stakes_object.status= status.HTTP_200_OK
+        general_stakes_object.status= str(status.HTTP_200_OK)
         general_stakes_object.message= "the user stakes data has been retreived succesfuly"
 
         return general_stakes_object
