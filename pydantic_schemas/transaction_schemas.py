@@ -8,7 +8,7 @@ class trans_type(enum.IntEnum):
 class trans_status(enum.IntEnum):
     successfull = 1
     pending = 2
-    failed = 0
+    failed = 0 
 
 class TransactionBase(BaseModel):
     amount : int

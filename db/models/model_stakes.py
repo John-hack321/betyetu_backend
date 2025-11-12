@@ -4,15 +4,7 @@ from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, Enum
 
 from db.db_setup import Base
 from db.models.mixins import TimeStamp
-
-# Define enums for database use
-class StakeWinner(enum.Enum):
-    owner = 1
-    guest = 2
-
-class StakeStatus(enum.Enum):
-    successfull = 1
-    pending = 0
+from pydantic_schemas.stake_schemas import StakeStatus, StakeWinner
 
 class Stake(Base, TimeStamp):
     __tablename__ = "stakes"

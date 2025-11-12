@@ -33,15 +33,18 @@ async def deposit_money(db : db_dependancy , user : user_depencancy , user_trans
     user_and_account_data = await get_user_and_account_data(db , user_id)
     # we first have to do the stk push to the user to initiate the transaction so that we record what we are sure of inot the database
     # we put it here so that we can utilize the user data from the database from the databae
-    test_phone = '254724027231'
-    mpesa_response_data = await create_stk_push(MPESA_PASS_KEY , MPESA_STK_URL ,test_phone, user_transaction_request_data.amount)
+    # test_phone = '254724027231'
+    mpesa_response_data = await create_stk_push(MPESA_PASS_KEY , MPESA_STK_URL, user_and_account_data.phone, user_transaction_request_data.amount)
     print(mpesa_response_data)
     # we will check the response code if it is 0 we will create the transaction if not we will raise http error exception 
     if mpesa_response_data.get('ResponseCode') == '0' :
         db_new_transaction = await create_transaction(db , user_transaction_request_data , user_id , user_and_account_data.account.id , trans_status.pending , mpesa_response_data['MerchantRequestID'] , mpesa_response_data['CheckoutRequestID'] )
         if not db_new_transaction:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "failed to create the new transaction on stk push")
-        return {'check_out_id' : db_new_transaction.merchant_checkout_id}
+        return {
+            'check_out_id' : db_new_transaction.merchant_checkout_id, # we are returing this for now for the case of debugging and error anlaysis 
+
+            }
     else :
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'mpesa return error string code instead of 0')
 
@@ -218,12 +221,13 @@ async def withdrawal_request(db: db_dependancy, user: user_depencancy, user_tran
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during withdrawal processing"
-        )
+        ) 
+
 @router.post('/withdrawal/result')
 async def withdrawal_result_callback(db: db_dependancy, request: Request):
     """
     Handles successful and failed B2C transaction results
-    """
+    """ 
     try:
         data = await request.json()
         logger.info(f"B2C Result callback: {data}")
@@ -301,7 +305,9 @@ async def withdrawal_timeout_callback(db: db_dependancy, request: Request):
     except Exception as e:
         logger.error(f"Timeout callback processing failed: {e}", exc_info=True)
         return {"error": "Timeout callback processing failed"}
-        
+
+    
+# UTILITY FUNCTION FOR HELLPING IN TRANSACTION API FUNCTIONS    
 async def parse_b2c_response_data(data : dict):
   """
   this is a utility function that parses the response data and returns usefull part so that we can use 

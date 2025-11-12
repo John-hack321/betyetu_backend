@@ -13,7 +13,7 @@ from api.utils.dependancies import db_dependancy
 from db.db_setup import Base, engine, get_db
 from db.db_setup import create_database, drop_database
 from api import api_auth, api_users, api_transactions, api_fixtures, api_leagues, api_stakes
-from api.admin_routes.admin_apis import leagues, fixtures
+from api.admin_routes.admin_apis import leagues, fixtures, stakes
 from logging_config import setup_logging
 from services.polling_services.polling_client import schedule_daily_polling, should_start_polling_now, polling_manager
 from services.sockets.socket_services import sio_app
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
     
     setup_logging()
 
-    """
+    
     # APScheduler initialization
     scheduler = AsyncIOScheduler(timezone=NAIROBI_TZ)
     scheduler.start()
@@ -74,11 +74,11 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Outside polling hours, waiting for 1pm to 3am polling window")
 
-    """
+    
 
     yield  # Application is running
 
-    """
+    
 
     # On application shutdown
     print('The application is shutting down now')
@@ -90,7 +90,7 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown(wait=True)
     logger.info("APScheduler shutdown")
     logger.info("Application shutdown complete")
-    """
+    
 
 
 app = FastAPI(lifespan=lifespan)
@@ -112,3 +112,4 @@ app.include_router(api_fixtures.router)
 app.include_router(fixtures.router)
 app.include_router(api_leagues.router)
 app.include_router(api_stakes.router)
+app.include_router(stakes.router)

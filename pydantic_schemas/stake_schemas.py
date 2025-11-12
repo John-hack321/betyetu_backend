@@ -14,7 +14,7 @@ class StakeWinner(str, Enum):
     guest = "guest"
 
 class StakeStatus(str, Enum):
-    successful = "successful"
+    successfull = "successfull"
     pending = "pending"
 
 

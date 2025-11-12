@@ -19,6 +19,10 @@ MPESA_SHORT_CODE = os.getenv('MPESA_SHORT_CODE')
 MPESA_CALL_BACK_URL = os.getenv('MPESA_CALL_BACK_URL')
 MPESA_PASS_KEY = os.getenv('MPESA_PASS_KEY')
 
+import logging
+
+logger= logging.getLogger(__name__)
+
 # lets wrap all of thise function into logic for ease of use right ?
 # lest first create a function for checking if the token is expired if it is then it generate a new one 
 

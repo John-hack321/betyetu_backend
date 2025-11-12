@@ -173,13 +173,13 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
         # loop through the owner stakes to determine which stakes the user won
         try:
             for item in owner_stakes:
+                result= "pending"
                 if item.winner != None:
                     if item.winner == StakeWinner.owner:
                         result = 'won'
                     else: 
                         result = "lost"
 
-                result= "pending"
                 # Convert the stake status to the appropriate enum value
 
                 status_value="pending"
@@ -187,7 +187,7 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                 print(f"the value fo stake status from the database before manipulation is : {item.stake_status}")
                 if item.stake_status == StakeStatus.pending:
                     status_value= "pending"
-                elif item.stake_status == StakeStatus.successful:
+                elif item.stake_status == StakeStatus.successfull:
                     status_value= "successful"
                 print(f"analys of stake status hs been done and the value of the stakeStatus has been set to {status_value}")
 
@@ -223,20 +223,19 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
         # loop through the guest stakes now
         try: 
             for item in guest_stakes:
+                result="pending"
                 if item.winner != None: # we have to do this so that if the colum is blank we dont asgn winners or losser
                     if item.winner == StakeWinner.guest:
                         result = 'won'
                     else: 
                         result = "lost"
 
-                result="pending"
-
                 status_value= "pending"
 
                 print(f"the value fo stake status from the database before manipulation is : {item.stake_status}")
                 if item.stake_status == StakeStatus.pending:
                     status_value= "pending"
-                elif item.stake_status == StakeStatus.successful:
+                elif item.stake_status == StakeStatus.successfull:
                     status_value= "successful"
 
                 possible_win: str | int= 0
