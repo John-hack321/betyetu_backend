@@ -56,6 +56,7 @@ class LiveDataService():
                 async with session.get(self.livefootball_data_api_url, headers=headers) as response:
                     logger.info(f'the api call was succesful')
                     response_data= await response.json()
+                    print(f'the response of live football data gotten back from the api is {response_data}')
                     return response_data
     
         except Exception as e:
@@ -128,6 +129,9 @@ class LiveDataService():
             popular_league_ids: list[int]= await get_popular_league_ids_from_redis()
 
             updated_match_ids_list= []
+
+            if len(live_football_data.response) == 0:
+                return # we return early if there are no live matches at the moment
 
             for item in live_football_data.response:
                 if item.leagueId in popular_league_ids:
