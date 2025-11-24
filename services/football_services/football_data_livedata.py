@@ -9,7 +9,7 @@ from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.admin_routes.util_matches import update_fixture_to_live_on_db, update_match_with_match_ended_data
-from api.utils.util_stakes import get_stake_by_match_id_from_db
+from api.utils.util_stakes import  update_stake_with_winner_data_and_do_payouts
 from pydantic_schemas.fixtures_schemas import FixtureScoreResponse
 from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLIveMatch
 from services.caching_services.redis_client import add_live_match_to_redis, get_live_match_data_from_redis, get_live_matches_from_redis, get_popular_league_ids_from_redis, update_live_match_home_score, update_live_match_away_score, update_live_match_time
@@ -104,13 +104,10 @@ class LiveDataService():
                 # updating of data based on fixture scores
                 match_scores: FixtureScoreResponse= await football_data_api_service.fetch_match_scores_by_match_id(item.matchId)
 
-                # so we now have the match scores and now we need to do some processing with the data ie: 
-                # determine which team is the winner ( either home or away )
-                # after which we have to determine the winner of the stake
+                winning_team= await update_fixture_data_and_determine_winner(db, item.matchId,match_scores)
 
-                winner= await update_fixture_data_and_determine_winner()
-
-                # since we now have the winner I think the next step is to update the data on the stakes too right 
+                # use the winning team to now update the data on the stake data objects and do payouts to users
+                await update_stake_with_winner_data_and_do_payouts(db, item.matchId, winning_team)
                 
 
         except HTTPException:
@@ -120,6 +117,11 @@ class LiveDataService():
             logger.error(f"an error occured while processing matches that have ended: {str(e)}",
             exc_info=True,
             extra={})
+
+            raise HTTPException(
+                status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"an error occured while processing matches that have ended"
+            )
         
 
 
@@ -127,11 +129,12 @@ class LiveDataService():
     # it has no return type as it is a process function
     async def __process_live_football_data(self, live_football_data: LiveFootballDataResponse, db: AsyncSession):
         """
-        first check matchi is in a popular league
-        if it is not add to the redis store
-        if it is in a populare league, compare if the scores have changed
+        first check match is part of a popular league
+        if it is not we skip it 
+        if match is part of populare leagues, look for it in the redis live matches store
+        if it is not in the redis store we add it to the redis store and skip all ther other steps for live matches
+        if it is in the redis store : update the data based on the live match data from the api
         """
-
         try:
             popular_league_ids: list[int]= await get_popular_league_ids_from_redis()
 
@@ -182,7 +185,7 @@ class LiveDataService():
             # i think we can also use the updated_match_ids_list to know which matches are in the store but no in the live_data
             # these are the matches that we need to handle by updating them on db as ended and on user also as ended and remove them from redis to
             
-            await self.__process_matches_that_have_ended()
+            await self.__process_matches_that_have_ended(db, updated_match_ids_list)
 
         except HTTPException:
             raise # reraise the previous exceptionc caught in the dirrerent functoins

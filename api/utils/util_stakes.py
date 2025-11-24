@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from sqlalchemy import delete, update, where
+from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio.exc import AsyncContextAlreadyStarted
 from sqlalchemy.future import select
@@ -229,7 +229,10 @@ async def update_stake_with_winner_data_and_do_payouts(db: AsyncSession, match_i
             update(Account)
             .where(Account.user_id.in_(
                 select(Stake.user_id)
-                .where(Stake.match_id == match_id, Stake.placement== winner_team)
+                .where(
+                    Stake.match_id== match_id,
+                    Stake.placement== winner_team,
+                    Stake.stake_status== StakeStatus.successfull)
             ))
             .values(
                 balance= Account.balance + (
@@ -245,7 +248,11 @@ async def update_stake_with_winner_data_and_do_payouts(db: AsyncSession, match_i
             update(Account)
             .where(Account.user_id.in_(
                 select(Stake.invited_user_id)
-                .where(Stake.match_id== match_id, Stake.invited_user_placement== winner_team)
+                .where(
+                    Stake.match_id== match_id,
+                    Stake.invited_user_placement== winner_team,
+                    Stake.stake_status== StakeStatus.successfull,
+                    Stake.invited_user_id.isnot(None))
             )).values(
                 balance= Account.balance + (
                     select(Stake.possibleWin).
