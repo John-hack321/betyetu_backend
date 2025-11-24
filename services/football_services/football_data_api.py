@@ -367,12 +367,10 @@ class FootballDataService():
             )
 
     """
-    will be used for getting fixtures by id from the api source
-    TODO: fetch fixture by match id
-    TODO: proccess the fixture data to a state that we can easily get data points that we want
+    this will be used for fetching match scores based ont he match id
+    it is mostly defined for the sake of helping out in the live data service when processing matches that have ended
     """
-    async def __fetch_fixture_by_match_id_from_api(self, match_id: int):
-        # TODO: define the logic for getting the fixture of one match by league id
+    async def get_match_scores_by_match_id(self, match_id: int):
         pass
 
 

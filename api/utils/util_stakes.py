@@ -196,3 +196,21 @@ async def set_possible_win_and_add_to_db(db: AsyncSession, stake_id: int):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while setting possible win to stake of stake id: {stake_id}"
          )
+
+# used to get the stake by match id from the database
+async def update_stake_data_with_match_ended_data(db: AsyncSession, match_id: int):
+    try:
+        query= select(Stake).where(Stake.match_id== match_id)
+        result= await db.execute(query)
+        db_stake_object= result.scalars().first()
+        return db_stake_object
+
+    except Exception as e:
+        logger.error(f"an error occured while getting stake by match id from the database: {str(e)}",
+        exc_info=True,
+        extra={
+            "match_id": match_id
+        })
+
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"an error occured while trying to get stake by match_id from the database {str(e)}")

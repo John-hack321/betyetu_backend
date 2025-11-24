@@ -5,6 +5,7 @@ short but lazy things that i need to do before i forget:
     confirm if i have done the db_dependancy thing well
 
 big things that need to be done 
+    find a way to define pydantic schemas for big data sets that appear complex
     make it so that both users have to place the same stake amount for it all to work
     need to understane the inner working of alembic so that i avoid falling into alembic pitfalls and all
     optimize the stakes endpoint to make it more time effeicient and less resource intensive

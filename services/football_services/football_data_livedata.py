@@ -9,6 +9,7 @@ from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.admin_routes.util_matches import update_fixture_to_live_on_db, update_match_with_match_ended_data
+from api.utils.util_stakes import get_stake_by_match_id_from_db
 from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLIveMatch
 from services.caching_services.redis_client import add_live_match_to_redis, get_live_match_data_from_redis, get_live_matches_from_redis, get_popular_league_ids_from_redis, update_live_match_home_score, update_live_match_away_score, update_live_match_time
 from services.sockets.socket_services import send_live_data_to_users, update_match_to_live_on_frontend_with_live_data_too
@@ -39,11 +40,12 @@ class LiveDataService():
         """
         return await self.__fetch_live_football_data(api_key)
     
-    async def process_live_football_data(self, live_data: dict, db: AsyncSession):
+    async def process_live_football_data(self, live_data: dict , db: AsyncSession):
         """
         Process the live football data
         """
-        return await self.__process_live_football_data(live_data, db)
+        validated_data= LiveFootballDataResponse(**live_data)
+        return await self.__process_live_football_data(validated_data, db)
 
     async def __fetch_live_football_data(self, api_key: str):
         try:
@@ -86,6 +88,7 @@ class LiveDataService():
                 detail=f"an error occured while updating match to live on db and frontend, {str(e)}"
             )
 
+
     async def __process_matches_that_have_ended(self, db: AsyncSession, updated_match_ids_list: list[int]):
         try:
             live_matches_list: list[RedisStoreLIveMatch]= await get_live_matches_from_redis()
@@ -97,8 +100,20 @@ class LiveDataService():
                 # the first usage of the global football_data_service
                 
                 # TODO: define a pydantic fixture for this match end model from the api
-                fixture= await football_data_api_service.__get_fixture_by_match_id(item.matchId)
+                # TODO: define the functionality for getting the matches by match id from the api
+                fixture= await football_data_api_service.__get_fixture_by_match_id(item.matchId) # this is an api call to the football data service
                 db_fixture_object= await update_match_with_match_ended_data(db, fixture)
+
+                # I think we also need to update the stakes with the winner of the matches and all right ? and also dispatch money based on who has won or ?
+                # get stake by match id 
+                # update the data based on the match outcome
+                # process the win and update account balance of the winner with the possible win amount
+                
+                # get stake by match id from the database
+
+                # updating of data based on fixture scores
+                match_scores= await football_data_api_service.get_match_scores_by_match_id(item.matchId)
+                                
 
                 if not db_fixture_object:
                     logger.error(f"failed to update fixture objecct to ended status in db")
