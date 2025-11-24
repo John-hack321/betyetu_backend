@@ -40,7 +40,7 @@ class ScoresData(BaseModel):
 
 class FixtureScoreResponse(BaseModel):
     """Root response model for fixture score API."""
-    status: str = Field(..., pattern="^(success|error)$")
+    status: str
     response: ScoresData
     
     class Config:
@@ -54,6 +54,12 @@ class FixtureScoreResponse(BaseModel):
                             "name": "Feyenoord",
                             "id": 10235,
                             "score": 1,
+                            "imageUrl": "https://images.fotmob.com/image_resources/logo/teamlogo/10235_small.png"
+                        },
+                        {
+                            "name": "Mancity",
+                            "id": 67839,
+                            "score": 9,
                             "imageUrl": "https://images.fotmob.com/image_resources/logo/teamlogo/10235_small.png"
                         }
                     ]

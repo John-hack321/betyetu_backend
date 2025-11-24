@@ -8,6 +8,7 @@ import logging
 from fastapi import HTTPException , status
 from sqlalchemy import true
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List, Dict, Any
 
 from api.admin_routes.util_leagues import add_league_to_db
 from api.admin_routes.util_matches import add_match_to_db
@@ -16,8 +17,7 @@ from api.admin_routes.util_leagues import get_leagues_list_from_db
 from db.models.model_fixtures import FixtureStatus
 from db.models.model_leagues import League
 from pydantic_schemas.league_schemas import LeagueBaseModel
-from sqlalchemy.future import select
-from typing import List, Dict, Any
+from pydantic_schemas.fixtures_schemas import FixtureScoreResponse
 
 load_dotenv()
 
@@ -359,6 +359,7 @@ class FootballDataService():
         except HTTPException:
             # Re-raise HTTP exceptions as they are
             raise
+
         except Exception as e:
             logger.error(f'Unexpected error in add_fixutures_by_league_id: {str(e)}', exc_info=True)
             raise HTTPException(
@@ -370,8 +371,43 @@ class FootballDataService():
     this will be used for fetching match scores based ont he match id
     it is mostly defined for the sake of helping out in the live data service when processing matches that have ended
     """
-    async def get_match_scores_by_match_id(self, match_id: int):
-        pass
+    async def fetch_match_scores_by_match_id(self, match_id: int) -> FixtureScoreResponse:
+        """
+        make api call for fetching matches score data
+        process and validate the score data using pydantic
+        return the scores / the best valuable form the data
+        """
+        try: 
+            base_url="https://free-api-live-football-data.p.rapidapi.com/football-get-match-score"
+            url = f"{base_url}?eventid={match_id}"
 
+            headers = {
+            'x-rapidapi-key': self.football_data_api_key,
+            'x-rapidapi-host': "free-api-live-football-data.p.rapidapi.com"
+            }
+
+            match_scores= await self.make_get_api_call(url, headers=headers)
+
+            # we also need to validate the match score data before returning them
+
+            validated_fixture_scores= FixtureScoreResponse(**match_scores)
+
+            return validated_fixture_scores
+
+        except HTTPException:
+            # re-raise this
+            raise 
+
+        except Exception as e:
+            logger.error(f"an unexpected error occured in when fetching_match_scores_by_id: {str(e)}",
+            exc_info=True,
+            extra={
+                "affected_match_id": match_id
+            })
+
+            raise HTTPException(
+                status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail= f"an error occured while fetching scores by match id: {str(e)}"
+            )
 
 football_data_api_service= FootballDataService()
