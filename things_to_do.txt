@@ -22,6 +22,10 @@ big things but for later on
     since im still in the dev phase, write a function/ endpoint that does outcome cleanup by checking for all of the matches that hve been played yet they havent been flagged as expired and make the expire once and for all 
 
 
+where I left from / stopping point : 
+    I was build the logic for handling the ended matches and I have just completed writing the api call part now it about the data handling 
+    and processing part that im headed to
+
 
 
 

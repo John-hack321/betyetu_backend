@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel
+from typing import Optional, List, Dict
+from pydantic import BaseModel, Field
 from db.models.model_fixtures import FixtureStatus
 
 # this is a represenstation of the parsed match object from the api call

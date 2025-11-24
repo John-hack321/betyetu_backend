@@ -103,6 +103,12 @@ class LiveDataService():
                 # updating of data based on fixture scores
                 match_scores: FixtureScoreResponse= await football_data_api_service.fetch_match_scores_by_match_id(item.matchId)
 
+                # so we now have the match scores and now we need to do some processing with the data ie: 
+                # determine which team is the winner ( either home or away )
+                # after which we have to determine the winner of the stake
+
+                winner= await update_fixture_data_and_determine_winner()
+
         except HTTPException:
             raise
 

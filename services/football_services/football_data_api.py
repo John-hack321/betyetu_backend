@@ -391,6 +391,9 @@ class FootballDataService():
             # we also need to validate the match score data before returning them
 
             validated_fixture_scores= FixtureScoreResponse(**match_scores)
+            # I think its better if we return only the relevant data to the other functions
+
+
 
             return validated_fixture_scores
 

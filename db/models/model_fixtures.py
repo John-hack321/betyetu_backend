@@ -22,10 +22,11 @@ class Fixture(Base , TimeStamp):
     away_team= Column(String, nullable=False)
     match_date= Column(DateTime, nullable=False)
     is_played= Column(Boolean, nullable=False, default=False)
-    outcome= Column(String, nullable=True)
+    outcome= Column(String, nullable=True) # stores the string outcome of the match in string format seperated by a hyphen
     home_score= Column(Integer, default=0)
     away_score= Column(Integer, default=0)
     fixture_status= Column(Enum(FixtureStatus), default= FixtureStatus.future)
+    winner= Column(String, nullable=True)
 
     league= relationship("League" , back_populates="fixtures")
     stakes = relationship('Stake', back_populates="match")

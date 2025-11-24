@@ -2,7 +2,7 @@ from sys import exc_info
 
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from db.db_setup import Base
-from pydantic_schemas.fixtures_schemas import MatchObject
+from pydantic_schemas.fixtures_schemas import FixtureScoreResponse, MatchObject
 from db.models.model_fixtures import Fixture
 from db.models.model_leagues import League
 from db.models.model_fixtures import FixtureStatus
@@ -265,4 +265,33 @@ async def convert_fixtures_result_object_from_to_db_desired_return_object(rows):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while converting fixture to desirerable fixtures object"
+        )
+
+
+async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: int, match_scores_data: FixtureScoreResponse):
+    try:
+        query= select(Fixture).where(Fixture.match_id == match_id)
+        result= await db.execute(query)
+        db_fixture_object= result.scalars().first()
+
+        # first we updata the data on the db based on the scores
+        for item in match_scores_data.response.scores:
+            if item.id== db_fixture_object.home_team_id:
+                db_fixture_object.home_score= item.score
+                db_fixture_object.outcome= "home"
+            else: 
+                db_fixture_object.away_score= item.score
+
+    except Exception as e:
+        await db.rollback()
+
+        logger.error(f"an error occured while updating fixture data and determining the winner, {str(e)}",
+        exc_info=True,
+        extra= {
+            "affected_match": match_id
+        })
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while updating fxiture data and setting the winner"
         )
