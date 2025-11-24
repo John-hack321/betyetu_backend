@@ -15,6 +15,7 @@ from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLIveM
 from services.caching_services.redis_client import add_live_match_to_redis, get_live_match_data_from_redis, get_live_matches_from_redis, get_popular_league_ids_from_redis, update_live_match_home_score, update_live_match_away_score, update_live_match_time
 from services.sockets.socket_services import send_live_data_to_users, update_match_to_live_on_frontend_with_live_data_too
 from services.football_services.football_data_api import football_data_api_service
+from api.admin_routes.util_matches import update_fixture_data_and_determine_winner
 
 # doing better error handling starting from now on this file 
 
@@ -108,6 +109,9 @@ class LiveDataService():
                 # after which we have to determine the winner of the stake
 
                 winner= await update_fixture_data_and_determine_winner()
+
+                # since we now have the winner I think the next step is to update the data on the stakes too right 
+                
 
         except HTTPException:
             raise

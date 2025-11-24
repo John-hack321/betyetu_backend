@@ -9,9 +9,11 @@ from db.db_setup import Base
 
 from enum import Enum
 
+# enum schemas
 class StakeWinner(str, Enum):
     owner = "owner"
     guest = "guest"
+    none = "none"
 
 class StakeStatus(str, Enum):
     successfull = "successfull"

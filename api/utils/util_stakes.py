@@ -1,12 +1,13 @@
 from fastapi import HTTPException
-from sqlalchemy import delete
+from sqlalchemy import delete, update, where
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio.exc import AsyncContextAlreadyStarted
 from sqlalchemy.future import select
 from fastapi import status, HTTPException
 
-from pydantic_schemas.stake_schemas import GuestStakeJoiningPayload, OwnerStakeInitiationPayload, StakeBaseModel
+from pydantic_schemas.stake_schemas import GuestStakeJoiningPayload, OwnerStakeInitiationPayload, StakeBaseModel, StakeWinner
 from db.models.model_stakes import Stake
+from db.models.model_users import Account
 from pydantic_schemas.stake_schemas import StakeStatus
 
 import logging
@@ -214,3 +215,85 @@ async def update_stake_data_with_match_ended_data(db: AsyncSession, match_id: in
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail=f"an error occured while trying to get stake by match_id from the database {str(e)}")
+
+
+async def update_stake_with_winner_data_and_do_payouts(db: AsyncSession, match_id: int, winner_team: str):
+    try: 
+        # we are going to do alot of buld updates for the data in this place
+
+        # PAYOUTS ARE DONE IN BULD UPDATES TO THE USER ACCOUNTS
+        # TODO: maybe later on send the money automaticaly to the users mpesa if it will be possible by that time
+        # bulk update account balances for all owner winners
+
+        await db.execute(
+            update(Account)
+            .where(Account.user_id.in_(
+                select(Stake.user_id)
+                .where(Stake.match_id == match_id, Stake.placement== winner_team)
+            ))
+            .values(
+                balance= Account.balance + (
+                    select(Stake.possibleWin)
+                    .where(Stake.user_id == Account.user_id, Stake.match_id== match_id)
+                    .scalar_subquery()
+                )
+            )
+        )
+
+        # bulk update account balances for all guest winners
+        await db.execute(
+            update(Account)
+            .where(Account.user_id.in_(
+                select(Stake.invited_user_id)
+                .where(Stake.match_id== match_id, Stake.invited_user_placement== winner_team)
+            )).values(
+                balance= Account.balance + (
+                    select(Stake.possibleWin).
+                    where(Stake.invited_user_id== Account.user_id, Stake.match_id== match_id)
+                )
+            )
+        )
+
+        # STAKE DATA UPDATES NOW
+
+        # bulk update the stakes where the owner is the stake winner
+        await db.execute(
+            update(Stake)
+            .where(Stake.match_id== match_id, Stake.placement== winner_team)
+            .values(winner= StakeWinner.owner)
+        )
+
+        # bulk update the stakes where the guest is the stake winner
+        await db.execute(
+            update(Stake)
+            .where(Stake.match_id== match_id, Stake.invited_user_placement== winner_team)
+            .values(winner= StakeWinner.guest)
+        )
+
+        await db.commit()
+
+        # HANDLING OF CASES WHERE NEITHER THE STAKE OWNER NOR THE STAKE GUEST IS THE WINNER
+
+        await db.execute(
+            update(Stake)
+            .where(
+                Stake.match_id== match_id,
+                Stake.placement!= winner_team,
+                Stake.invited_user_placement!= winner_team,
+            )
+            .values(winner= StakeWinner.none)
+        )
+
+    except Exception as e:
+        await db.rollback()
+
+        logger.error(f"an error occured while updating stake data with winner data, {str(e)}",
+        exc_info=True,
+        extra={
+            "affected_match_id": match_id
+        })
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while updating stake data with winner data"
+        )

@@ -268,7 +268,7 @@ async def convert_fixtures_result_object_from_to_db_desired_return_object(rows):
         )
 
 
-async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: int, match_scores_data: FixtureScoreResponse):
+async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: int, match_scores_data: FixtureScoreResponse) -> str:
     try:
         query= select(Fixture).where(Fixture.match_id == match_id)
         result= await db.execute(query)
@@ -278,9 +278,23 @@ async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: i
         for item in match_scores_data.response.scores:
             if item.id== db_fixture_object.home_team_id:
                 db_fixture_object.home_score= item.score
-                db_fixture_object.outcome= "home"
             else: 
                 db_fixture_object.away_score= item.score
+
+        db_fixture_object.outcome= f"{db_fixture_object.home_score}-{db_fixture_object.away_score}"
+
+        # determine the winner and update it too
+        if db_fixture_object.home_score > db_fixture_object.away_score:
+            db_fixture_object.winner= "home"
+            winning_team= db_fixture_object.home_team
+        elif db_fixture_object.away_score > db_fixture_object.home_score:
+            db_fixture_object.winner= "away"
+            winning_team= db_fixture_object.away_team
+        else: 
+            db_fixture_object.winner= "draw"
+            winning_team= "draw"
+
+        return winning_team
 
     except Exception as e:
         await db.rollback()
