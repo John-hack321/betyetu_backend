@@ -1,21 +1,23 @@
 from pydantic import BaseModel
-from sqlalchemy.orm import strategy_options
+from typing import Optional
 
 class HomeLiveMatch(BaseModel):
     id: int
     score: int
     name: str
     longName: str
+    redCards: Optional[int] = None  # Added since some matches have red cards
 
 class AwayLiveMatch(BaseModel):
     id: int
     score: int
     name: str
     longName: str
+    redCards: Optional[int] = None  # Added since some matches have red cards
 
 class HalfsModel(BaseModel):
     firstHalfStarted: str
-    secondHalfStarted: str
+    secondHalfStarted: Optional[str] = None  # Not all matches have second half started
 
 class LiveTimeModel(BaseModel):
     short: str
@@ -35,7 +37,9 @@ class LiveMatchStatus(BaseModel):
     ongoing: bool
     scoreStr: str
     liveTime: LiveTimeModel
-    timeTs: str
+    numberOfHomeRedCards: Optional[int] = None  # Added for matches with red cards
+    numberOfAwayRedCards: Optional[int] = None  # Added for matches with red cards
+    # Note: timeTs is at the LiveMatch level, not here
 
 class LiveMatch(BaseModel):
     id: int
@@ -43,18 +47,23 @@ class LiveMatch(BaseModel):
     time: str
     home: HomeLiveMatch
     away: AwayLiveMatch
-    eliminatedTeamId: int
+    eliminatedTeamId: Optional[int] = None
     statusId: int
     tournamentStage: str
     status: LiveMatchStatus
+    timeTS: int  # This is the timestamp field
+
+class LiveResponseWrapper(BaseModel):
+    """Wrapper for the live matches array"""
+    live: list[LiveMatch]
 
 class LiveFootballDataResponse(BaseModel):
     status: str
-    response: list[LiveMatch]
+    response: LiveResponseWrapper  # Changed from list[LiveMatch] to LiveResponseWrapper
 
-class RedisStoreLIveMatch(BaseModel):
+class RedisStoreLiveMatch(BaseModel):
     matchId: str
-    leageuId: str
+    leagueId: str
     homeTeam: str
     awayTeam: str
     homeTeamScore: int

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 import logging
 
-from pydantic_schemas.live_data import RedisStoreLIveMatch
+from pydantic_schemas.live_data import RedisStoreLiveMatch
 
 logging.basicConfig(
     level=logging.INFO,
@@ -88,7 +88,7 @@ async def get_live_match_data_from_redis(match_id: str):
         )
 
 # for adding live matches to redis
-async def add_live_match_to_redis(redis_live_match: RedisStoreLIveMatch):
+async def add_live_match_to_redis(redis_live_match: RedisStoreLiveMatch):
     try:
         r.hset(str(redis_live_match), mapping= redis_live_match)
 

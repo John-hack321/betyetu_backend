@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.admin_routes.util_matches import update_fixture_to_live_on_db, update_match_with_match_ended_data
 from api.utils.util_stakes import  update_stake_with_winner_data_and_do_payouts
 from pydantic_schemas.fixtures_schemas import FixtureScoreResponse
-from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLIveMatch
+from pydantic_schemas.live_data import LiveFootballDataResponse, RedisStoreLiveMatch
 from services.caching_services.redis_client import add_live_match_to_redis, get_live_match_data_from_redis, get_live_matches_from_redis, get_popular_league_ids_from_redis, update_live_match_home_score, update_live_match_away_score, update_live_match_time
 from services.sockets.socket_services import send_live_data_to_users, update_match_to_live_on_frontend_with_live_data_too
 from services.football_services.football_data_api import football_data_api_service
@@ -140,17 +140,18 @@ class LiveDataService():
 
             updated_match_ids_list= []
 
-            if len(live_football_data.response) == 0:
+            if len(live_football_data.response.live) == 0:
+                print(f"we have confirmed that the length of the data is less than 0")
                 return # we return early if there are no live matches at the moment
 
-            for item in live_football_data.response:
+            for item in live_football_data.response.live:
                 if item.leagueId in popular_league_ids:
                     # check if the live match is present in the redis store
-                    live_match: RedisStoreLIveMatch= await get_live_match_data_from_redis(item.id)
+                    live_match: RedisStoreLiveMatch= await get_live_match_data_from_redis(item.id)
                     # if the live match is not present we will add it then do other thing necesary for new matches then skip other logic
                     if not live_match:
                         logger.info(f"the live match of id {item.id} is not present in the redis store")
-                        live_match_data= RedisStoreLIveMatch(
+                        live_match_data= RedisStoreLiveMatch(
                             matchId= item.id,
                             leageuId= item.leagueId,
                             homeTeam= item.home.name,
