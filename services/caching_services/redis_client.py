@@ -6,6 +6,8 @@ from pydantic import BaseModel
 
 import logging
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from pydantic_schemas.live_data import RedisStoreLiveMatch
 
 logging.basicConfig(
@@ -38,10 +40,12 @@ r2= redis.Redis(
 
 # popular leageus will be added to redis on startup
 # this will always be called on startup of the application
-async def add_popular_leagues_to_redis(popular_league_ids: list[int]):
+async def add_popular_leagues_to_redis(db: AsyncSession):
     try:
+        league_ids_list: list[int]= await get_popular_league_ids_from_redis(db)
+
         r2.json().set('league_ids_cache', '$', {
-        'league_ids': popular_league_ids
+        'league_ids': league_ids_list
         })
 
         return {
@@ -58,6 +62,7 @@ async def add_popular_leagues_to_redis(popular_league_ids: list[int]):
 async def get_popular_league_ids_from_redis():
     try:
         league_ids_list= r2.json().get('league_ids_cache', '$.league_ids')
+        print(f"the data league ids daa gotten back from redis is : {league_ids_list}")
         return league_ids_list
     except Exception as e:
         logger.error(f"an error occured while trying to fethc league ids from the redis cache: {str(e)}", exc_info=True)
@@ -128,6 +133,7 @@ async def update_live_match_time(match_id: int, time: str):
         r.hset(f"{match_id}", "time", time)
     except Exception as e:
         logger.error(f"an error occured while updating the live match timer")
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while updating the timer for the live match data"

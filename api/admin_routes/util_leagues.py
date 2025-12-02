@@ -141,3 +141,27 @@ async def delete_league_from_popular_leagues_table(db: AsyncSession, league_id: 
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while deleting league from popular leagues in the database: {str(e)}"
         )
+
+
+async def get_popular_leageus_ids_from_db(db: AsyncSession):
+    try: 
+        query= select(PopularLeague)
+        result= await db.execute(query)
+        db_popular_leageus_object= result.scalars().all()
+
+        leagues_ids_list= []
+        for item in db_popular_leageus_object:
+            leagues_ids_list.append(item.id)
+
+        return leagues_ids_list
+
+    except Exception as e:
+        logger.error(f"an error occured while getting popular leagues list from the db {str(e)}",
+        exc_info=True,
+        detail={})
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an errro occured while getting popular leagues ids form the database"
+        )
+

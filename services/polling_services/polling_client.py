@@ -71,6 +71,11 @@ class PollingManager():
 
 
     async def _fetch_and_process_live_football_data(self, db: AsyncSession):
+        """
+        fetches live football data from the api endpoint
+        proesses the data form the endpoint
+
+        """
         try:
             logger.info("sending the request for live data now")
             # Call the public method that handles the private method call
@@ -91,10 +96,10 @@ class PollingManager():
 
             })
             
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"an error occured while fetching and processing live data"
-        )
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"an error occured while fetching and processing live data"
+            )
 
     # the polling loop itself
     async def _poll_loop(self, db: AsyncSession):
@@ -113,7 +118,7 @@ class PollingManager():
                 await self._fetch_and_process_live_football_data(db)
 
                 # sleep for 7 seconds first
-                await asyncio.sleep(7)
+                await asyncio.sleep(700000000000000000000) # this is for dev perposes dont forget to return this to 7 seconds
 
             except asyncio.CancelledError:
                 logger.info(f"Polling loop cancelled")
@@ -123,7 +128,7 @@ class PollingManager():
                 logger.error(f"an error in polling loop: {str(e)}",
                 exc_info=True)
 
-                await asyncio.sleep(7)
+                await asyncio.sleep(700000000000000000000000)
                  
                 # as much an HTTPException was not raised at this point we aught to have raised one, well i think so
                 raise HTTPException(

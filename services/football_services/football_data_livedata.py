@@ -137,6 +137,7 @@ class LiveDataService():
         """
         try:
             popular_league_ids: list[int]= await get_popular_league_ids_from_redis()
+            print(f"this is in the process_live_football data function : the data gotten back from redis is : {popular_league_ids}")
 
             updated_match_ids_list= []
 

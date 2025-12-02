@@ -17,6 +17,7 @@ from api.admin_routes.admin_apis import leagues, fixtures, stakes
 from logging_config import setup_logging
 from services.polling_services.polling_client import schedule_daily_polling, should_start_polling_now, polling_manager
 from services.sockets.socket_services import sio_app
+from services.caching_services.redis_client import add_popular_leagues_to_redis
 
 # Define timezone
 NAIROBI_TZ = timezone('Africa/Nairobi')
@@ -47,6 +48,17 @@ async def lifespan(app: FastAPI):
     print('The application has just started')
     
     setup_logging()
+    
+    # Get database session using the dependency
+    db = next(get_db())
+    try:
+        # Add popular leagues to Redis on startup
+        await add_popular_leagues_to_redis(db)
+        logger.info("Successfully added popular leagues to Redis cache on startup")
+    except Exception as e:
+        logger.error(f"Failed to add popular leagues to Redis on startup: {str(e)}", exc_info=True)
+    finally:
+        db.close()
 
     
     # APScheduler initialization
