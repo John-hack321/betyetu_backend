@@ -8,6 +8,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.admin_routes.util_leagues import get_popular_leageus_ids_from_db
 from pydantic_schemas.live_data import RedisStoreLiveMatch
 
 logging.basicConfig(
@@ -42,7 +43,7 @@ r2= redis.Redis(
 # this will always be called on startup of the application
 async def add_popular_leagues_to_redis(db: AsyncSession):
     try:
-        league_ids_list: list[int]= await get_popular_league_ids_from_redis(db)
+        league_ids_list: list[int]= await get_popular_leageus_ids_from_db(db)
 
         r2.json().set('league_ids_cache', '$', {
         'league_ids': league_ids_list
@@ -62,7 +63,7 @@ async def add_popular_leagues_to_redis(db: AsyncSession):
 async def get_popular_league_ids_from_redis():
     try:
         league_ids_list= r2.json().get('league_ids_cache', '$.league_ids')
-        print(f"the data league ids daa gotten back from redis is : {league_ids_list}")
+        print(f"the data league ids  gotten back from redis is : {league_ids_list}")
         return league_ids_list
     except Exception as e:
         logger.error(f"an error occured while trying to fethc league ids from the redis cache: {str(e)}", exc_info=True)

@@ -22,10 +22,6 @@ from services.caching_services.redis_client import add_popular_leagues_to_redis
 # Define timezone
 NAIROBI_TZ = timezone('Africa/Nairobi')
 
-app = FastAPI()
-
-app.mount('/socket_services', app=sio_app)
-
 load_dotenv('.env')
 load_dotenv('.env.prod')
 
@@ -49,17 +45,17 @@ async def lifespan(app: FastAPI):
     
     setup_logging()
     
-    # Get database session using the dependency
-    db = next(get_db())
-    try:
-        # Add popular leagues to Redis on startup
-        await add_popular_leagues_to_redis(db)
-        logger.info("Successfully added popular leagues to Redis cache on startup")
-    except Exception as e:
-        logger.error(f"Failed to add popular leagues to Redis on startup: {str(e)}", exc_info=True)
-    finally:
-        db.close()
-
+    # Get database session using async for loop
+    async for db in get_db():
+        try:
+            # Add popular leagues to Redis on startup
+            await add_popular_leagues_to_redis(db)
+            logger.info("Successfully added popular leagues to Redis cache on startup")
+        except Exception as e:
+            logger.error(f"Failed to add popular leagues to Redis on startup: {str(e)}", exc_info=True)
+        finally:
+            await db.close()
+        break  # Only need one session, so break after first iteration
     
     # APScheduler initialization
     scheduler = AsyncIOScheduler(timezone=NAIROBI_TZ)
@@ -78,19 +74,15 @@ async def lifespan(app: FastAPI):
         async for db in get_db():
             try:
                 await polling_manager.start(db)
-                break  # Only need one session
             except Exception as e:
                 logger.error(f"Failed to start polling: {str(e)}", exc_info=True)
             finally:
                 await db.close()
+            break  # Only need one session
     else:
         logger.info("Outside polling hours, waiting for 1pm to 3am polling window")
 
-    
-
     yield  # Application is running
-
-    
 
     # On application shutdown
     print('The application is shutting down now')
@@ -102,10 +94,11 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown(wait=True)
     logger.info("APScheduler shutdown")
     logger.info("Application shutdown complete")
-    
 
 
 app = FastAPI(lifespan=lifespan)
+
+app.mount('/socket_services', app=sio_app)
 
 app.add_middleware(
     CORSMiddleware,

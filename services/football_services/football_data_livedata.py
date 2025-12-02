@@ -208,4 +208,4 @@ class LiveDataService():
 # i think i should make the live data service instance global
 # thought i havent used it as a global thing yet in the code 
 # but im about to soon so long as im done with the consulting on whether to use it or not
-live_data_service= LiveDataService()
+live_data_service= LiveDataService(),
