@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sys import exc_info
 
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
@@ -16,6 +17,8 @@ import math
 import logging
 import sys
 
+from pytz import timezone
+NAIROBI_TZ = timezone('Africa/Nairobi')
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,9 +61,13 @@ the function will be sending the fixture data to the frontend in chunks of 100 p
 async def get_all_fixtures_from_db(db : AsyncSession , limit : int=100, page : int = 1):
     offset = (page - 1) * limit
     total= await db.scalar(select(func.count()).select_from(Fixture))
+    current_time_eat = datetime.now(NAIROBI_TZ).replace(tzinfo=None)
     query= (
         select(Fixture, League.name.label("league_name"), League.logo_url.label("league_logo_url"))
-        .where(Fixture.fixture_status != FixtureStatus.expired)
+        .where(
+            Fixture.fixture_status != FixtureStatus.expired,
+            Fixture.match_date >= current_time_eat 
+        )
         .join(League, Fixture.league_id == League.id)
         .order_by(Fixture.match_date.asc()) # for sorting the data based on the dates they will be played
         .limit(limit)

@@ -3,6 +3,7 @@ from urllib import response
 from dotenv import load_dotenv
 import os
 import aiohttp
+from sqlalchemy import select
 import logging
 
 from fastapi import HTTPException , status
@@ -18,6 +19,9 @@ from db.models.model_fixtures import FixtureStatus
 from db.models.model_leagues import League
 from pydantic_schemas.league_schemas import LeagueBaseModel
 from pydantic_schemas.fixtures_schemas import FixtureScoreResponse
+
+from pytz import timezone
+NAIROBI_TZ = timezone('Africa/Nairobi')
 
 load_dotenv()
 
@@ -111,15 +115,17 @@ class FootballDataService():
             match_date_str = item.get('status', {}).get('utcTime')
             match_date = None
             if match_date_str:
+                # Parse as UTC
                 if match_date_str.endswith('Z'):
-                    match_date = datetime.fromisoformat(match_date_str.replace('Z', '+00:00'))
-                    # Convert to timezone-naive datetime
-                    match_date = match_date.replace(tzinfo=None)
+                    match_date_utc = datetime.fromisoformat(match_date_str.replace('Z', '+00:00'))
                 else:
-                    match_date = datetime.fromisoformat(match_date_str)
-                    # Ensure it's timezone-naive
-                    if match_date.tzinfo is not None:
-                        match_date = match_date.replace(tzinfo=None)
+                    match_date_utc = datetime.fromisoformat(match_date_str)
+                
+                # Convert to Nairobi time (EAT)
+                match_date_eat = match_date_utc.astimezone(NAIROBI_TZ)
+                
+                # Store as timezone-naive (but we know it's EAT)
+                match_date = match_date_eat.replace(tzinfo=None)
             home_score= item.get('home').get('score')
             away_score= item.get('away').get('score')
             is_played= item.get('status').get('finished')
