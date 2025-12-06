@@ -133,6 +133,7 @@ async def update_fixture_to_live_on_db(db : AsyncSession, match_id: int):
 async def update_match_with_match_ended_data(db: AsyncSession, ended_match_fixture):
     """
     things to update: outcome, home_score, away_score, fixture_status
+    updates the data suggested up there on the fixtur object so that it is marked as ended 
     """
     try:
         query= select(Fixture).where(Fixture.match_id== ended_match_fixture.get("match_id"))
@@ -232,6 +233,7 @@ async def delete_matches_by_league_id(db: AsyncSession, league_id: int):
 async def convert_fixtures_result_object_from_to_db_desired_return_object(rows):
     """
     takes in the all fixtures rows from db 
+    processes them so that we return the desired fixtures object to the frontend for processing
     """
     try:
         fixtures_with_league_data = []
@@ -269,6 +271,11 @@ async def convert_fixtures_result_object_from_to_db_desired_return_object(rows):
 
 
 async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: int, match_scores_data: FixtureScoreResponse) -> str:
+    """
+    uses the match socores to determine the match outcome ( determine the winnig team)
+    it update the fixture object in the db , with the winning team data 
+    the it returns the winning team for processing of user data in the main parent function it works for
+    """
     try:
         query= select(Fixture).where(Fixture.match_id == match_id)
         result= await db.execute(query)

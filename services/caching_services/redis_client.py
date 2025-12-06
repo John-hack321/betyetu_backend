@@ -1,4 +1,5 @@
 import sys
+import json
 from aiohttp import http_exceptions
 import redis
 from fastapi import HTTPException, status
@@ -74,8 +75,10 @@ async def get_popular_league_ids_from_redis():
 
 # we will use this when processing data live league data from the api
 async def get_live_matches_from_redis():
+    print(f"the get live matches function from redis is now running")
     try:
-        live_matches_list= r.hgetall()
+        live_matches_list= r.hgetall('live_matches')
+        print(f"matches gotten from redis are: {live_matches_list}")
         return live_matches_list
     except Exception as e:
         logger.error(f"an error occured while getting live matches from redis, detail: {str(e)}", exc_info=True)
@@ -83,8 +86,9 @@ async def get_live_matches_from_redis():
         detail=f"an error occured while trying to get live data from redis")
 
 async def get_live_match_data_from_redis(match_id: str):
+    print(f"running the get_live_mtch_data_from_redis function with match_id: {match_id}")
     try:
-        live_match= r.hgetall(match_id)
+        live_match= r.hget('live_matches', str(match_id))
         return live_match
     except Exception as e:
         logger.error(f"an error occured while fetching live match from redis stor r: detail: {str(e)}", exc_info=True)
@@ -96,7 +100,9 @@ async def get_live_match_data_from_redis(match_id: str):
 # for adding live matches to redis
 async def add_live_match_to_redis(redis_live_match: RedisStoreLiveMatch):
     try:
-        r.hset(str(redis_live_match), mapping= redis_live_match)
+        r.hset("live_matches",
+        str(redis_live_match.matchId),
+        redis_live_match.json())
 
         return {
             'status': status.HTTP_200_OK,
@@ -111,8 +117,15 @@ async def add_live_match_to_redis(redis_live_match: RedisStoreLiveMatch):
         )
 
 async def update_live_match_home_score(match_id: int, home_score: int):
+    print(f"updating live match home score of match id : {match_id}")
     try:
-        r.hset(f"{match_id}", "homeTeamScore", home_score )
+        match_json = r.hget("live_matches", str(match_id))
+        
+        if match_json:
+            # Parse, update, and save back
+            match_data = json.loads(match_json)
+            match_data['homeTeamScore'] = home_score
+            r.hset("live_matches", str(match_id), json.dumps(match_data))
 
     except Exception as e:
         logger.error(f"an error occured while updating the home score of a live match, {str(e)}", exc_info=True)
@@ -120,8 +133,15 @@ async def update_live_match_home_score(match_id: int, home_score: int):
         detail=f"an error occured while updating the live match {str(e)}")
 
 async def update_live_match_away_score(match_id: int, away_score: int):
+    print(f"updating live match away score of match id : {match_id}")
     try:
-        r.hset(f"{match_id}", "awayTeamScore", away_score)
+        match_json= r.hget('live_matches', str(match_id))
+
+        if match_json:
+            match_data= json.loads(match_json)
+            match_data['awayTeamScore'] = away_score
+            r.hset('live_matches', str(match_id), json.dumps(match_data))
+
     except Exception as e:
         logger.error(f"an error occured while updating the live match away score: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -130,8 +150,15 @@ async def update_live_match_away_score(match_id: int, away_score: int):
         )
 
 async def update_live_match_time(match_id: int, time: str):
+    print(f"updating live match time of match id : {match_id}")
     try:
-        r.hset(f"{match_id}", "time", time)
+        match_json= r.hget('live_matches', str(match_id))
+
+        if match_json:
+            match_data= json.loads(match_json)
+            match_data['time']= time
+            r.hset('live_matches', str(match_id), json.dumps(match_data))
+
     except Exception as e:
         logger.error(f"an error occured while updating the live match timer")
         

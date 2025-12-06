@@ -47,6 +47,7 @@ class LiveDataService():
         Process the live football data
         """
         validated_data= LiveFootballDataResponse(**live_data)
+        print(f"now runnig the process_live_football_data outer function for data validation")
         return await self.__process_live_football_data(validated_data, db)
 
     async def __fetch_live_football_data(self, api_key: str):
@@ -147,6 +148,10 @@ class LiveDataService():
 
             for item in live_football_data.response.live:
                 if item.leagueId in popular_league_ids:
+                    # for live match items that are of the popular leageu suite
+                    
+                    print(f'found a popular league: {item.leagueId}')
+
                     # check if the live match is present in the redis store
                     live_match: RedisStoreLiveMatch= await get_live_match_data_from_redis(item.id)
                     # if the live match is not present we will add it then do other thing necesary for new matches then skip other logic
