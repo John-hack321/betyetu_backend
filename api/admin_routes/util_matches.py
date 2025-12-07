@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sys import exc_info
 
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
@@ -62,11 +62,14 @@ async def get_all_fixtures_from_db(db : AsyncSession , limit : int=100, page : i
     offset = (page - 1) * limit
     total= await db.scalar(select(func.count()).select_from(Fixture))
     current_time_eat = datetime.now(NAIROBI_TZ).replace(tzinfo=None)
+
+    match_cutoff_time = current_time_eat - timedelta(hours=2)
+
     query= (
         select(Fixture, League.name.label("league_name"), League.logo_url.label("league_logo_url"))
         .where(
             Fixture.fixture_status != FixtureStatus.expired,
-            Fixture.match_date >= current_time_eat 
+            Fixture.match_date >= match_cutoff_time
         )
         .join(League, Fixture.league_id == League.id)
         .order_by(Fixture.match_date.asc()) # for sorting the data based on the dates they will be played
@@ -323,3 +326,17 @@ async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: i
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while updating fxiture data and setting the winner"
         )
+
+
+async def get_todays_matches(db_dependancy):
+    try:
+        ...
+
+    except Exception as e:
+        logger.error(f"an error occured while getting todays matches from the database, {str(e)}",
+        exc_info=True)
+        
+    raise HTTPException(
+        status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail= f"an error occured while getting today matches from the database, {str(e)}"
+    )

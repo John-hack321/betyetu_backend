@@ -52,7 +52,7 @@ async def add_leagues_to_system(db : db_dependancy):
     """
     this is a function for initialy adding the leagues to the database
     check if database is already popylate with leagues data
-    """
+    """  
     db_object = await get_leagues_list_from_db(db)
     if db_object:
         return {
