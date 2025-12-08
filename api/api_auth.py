@@ -9,12 +9,13 @@ from jose import jwt
 from starlette.status import HTTP_400_BAD_REQUEST
 import logging # logging for errors
 
-from api.utils.dependancies import bcrypt_context
+from api.utils.dependancies import bcrypt_context, user_depencancy
 from dotenv import load_dotenv
 from api.utils.dependancies import ALGORITHM, SECRET_KEY, bcrypt_context , db_dependancy , refresh_user_dependancy
 from db.models.model_users import User
 from pydantic_schemas.users_schema import Token , UserCreateRequest
 from api.utils.util_users import create_user , get_user_by_username , get_user_by_email
+from services.email_services.email_service import email_service
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ async def add_user(db : db_dependancy , user : UserCreateRequest , request : Req
     if not new_db_user :
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = 'failed to create a new db user')
     print(f'the user {new_db_user.username} has been created succesfuly')
-    token = await create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes = 20))
+    token = await create_access_token(new_db_user.username , new_db_user.id , timedelta(hours= 24))
     print(f'access token {token} created successfuly')
     return {'access_token' : token , 'token_type' : 'bearer' }
     
@@ -130,13 +131,13 @@ async def login_for_access_token(
     user = await authenticate_user(form_data.username , form_data.password , db )
     if not user:
         raise HTTPException( status_code =status.HTTP_401_UNAUTHORIZED , detail = " could not authorize the user ")
-    access_token = await create_access_token(user.username , user.id , timedelta(minutes = 20))
-    refresh_token = await create_refresh_token(user.username , user.id , timedelta(minutes=10080))
+    access_token = await create_access_token(user.username , user.id , timedelta(hours= 24))
+    refresh_token = await create_refresh_token(user.username , user.id , timedelta(days= 30))
     return {
         'access_token' : access_token ,
-        #'refresh_token' : refresh_token , 
+        'refresh_token' : refresh_token , 
         'token_type' : 'bearer'
-         }
+        }
 
 # we are now going to create a nll use it iew endpoint for generating a new access tokne whenver the previous one expires 
 @router.post('/token/refresh' ) # so this neans when querying this endpoint we structure it this way : /auth/token/refresh and this is based on the prefix at the start of the file 
@@ -146,7 +147,82 @@ async def get_new_access_token(data : refresh_user_dependancy):
     print("we are now extracting user data from the ")
     if username is None or user_id is None:
         raise HTTPException( status_code = status.HTTP_401_UNAUTHORIZED , detail = "error authenticating user")
-    new_access_token = await create_access_token(username , user_id , timedelta(minutes = 20))
+    new_access_token = await create_access_token(username , user_id , timedelta(hours= 24))
+
     return {'access_token' : new_access_token , 'token_type' : 'bearer' }
 
 # note : this endpoint created here we will use it in future requests when building the other secure endpoints 
+
+
+@router.post('/logout')
+async def logout_user(user: user_depencancy):
+    """
+    the user is logging out now
+    """
+
+    logger.info(f"user has logged our successfuly, user details : ", user)
+
+    return {
+        'status': status.HTTP_200_OK,
+        'message': "the user has been logged out successfuly"
+    }
+
+
+# PASSWORD RESET FUNCTIONALITIES : 
+async def create_password_reset_token(email: str, user_id: int) -> str:
+    """
+    Create a short-lived token for password reset.
+    Different from JWT - simpler and more secure for this use case.
+    """
+    encode = {
+        'email': email,
+        'id': user_id,
+        'type': 'password_reset'
+    }
+    expires = datetime.now(timezone.utc) + timedelta(hours=1)  # 1 hour only
+    encode.update({'exp': expires})
+    return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+@router.post('/forgot-password', status_code=status.HTTP_200_OK)
+async def request_password_reset(email: str, db: db_dependancy):
+    try :
+        user= await get_user_by_email(db, email)
+
+        if not user: 
+            # NOTE: If the user is not presenet we still return success to prevent email enumeration
+
+            return {
+                'status': status.HTTP_200_OK,
+                'message': "the reset link has been sent to the email "
+            }
+
+        reset_token= await create_password_reset_token(user.email, user.id)
+
+        frontend_url= os.getenv('FRONTEND_URL')
+        reset_link = f"{frontend_url}/reset-password?token={reset_token}"
+
+        email_sent = await email_service.send_password_reset_email(
+            to_email=user.email,
+            reset_link=reset_link,
+            username=user.username
+        )
+
+        if email_sent:
+            logger.info(f" the email has been succesfuly sent to the user ")
+
+        else:
+            logger.error(f'an error occured while sending the email to the user')
+
+        return {
+            'success': status.HTTP_200_OK,
+            'message': "if an email exists the a reset link has been sent"
+        }
+
+    except Exception as e:
+        logger.error(f" an error occured while accessing the request password reset endpong : {str(e)}")
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f" an error occured while trying to access the reset password endpoint : {str(e)}"
+        )
