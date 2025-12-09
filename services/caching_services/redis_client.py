@@ -10,7 +10,9 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.admin_routes.util_leagues import get_popular_leageus_ids_from_db
+from api.admin_routes.util_matches import get_todays_matches
 from pydantic_schemas.live_data import RedisStoreLiveMatch
+from pydantic_schemas.live_data import RedisStoreLiveMatchVTwo
 
 logging.basicConfig(
     level=logging.INFO,
@@ -165,4 +167,73 @@ async def update_live_match_time(match_id: int, time: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while updating the timer for the live match data"
+        )
+
+
+# ALTERNATIVE MATCH HANDLING FUNCTIONS
+
+# functinalitis for the alternative match handling
+async def cache_todays_matches(db: AsyncSession):
+    """
+    we will be caching todays matches for efficient accesst to them 
+    """
+
+    try :
+
+        db_todays_matches= await get_todays_matches(db)
+
+        if not db_todays_matches:
+            logger.info(f"we were unable to get todays matches from the db")
+
+            db_todays_matches= []  # make it to be just an empty object now so that the programm does not fail.
+
+        for item in db_todays_matches:
+
+            # so the matches are set into the redis store using their match ids as the id that will be used for querying them if qurying will be necesary at one point
+
+            item= RedisStoreLiveMatchVTwo(
+                matchId= item.match_id,
+                leagueId= item.league_id,
+                homeTeam= item.home_team,
+                awayTeam= item.away_team,
+                homeTeamScore= item.home_score,
+                awayTeamScore= item.away_score,
+                date= item.match_date,
+                time= ""
+            )
+
+            r.hset("live_matches",
+            str(item.matchId),
+            item.json())
+
+            return True
+
+    except HTTPException:
+        # rethrow these ones
+        pass
+
+
+    except Exception as e:
+
+        logger.error(f"an error occured while trying to query matches from the db, detail= {str(e)}")
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while trying to cache todays matches in the redis cache, {str(e)}"
+        )
+
+
+async def get_chached_matches():
+    try:
+        redis_live_matches= r.hgetall('live_matches')
+        logger.info(f"the live matches gotten from the redis store are:", redis_live_matches)
+
+        return redis_live_matches
+
+    except Exception as e:
+        logger.error(f"an error occured while getting the cached matches, {str(e)}")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while trying to get cached matches from the redis stroe , {str(e)}"
         )

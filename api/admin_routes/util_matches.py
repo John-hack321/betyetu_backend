@@ -328,15 +328,69 @@ async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: i
         )
 
 
-async def get_todays_matches(db_dependancy):
+from datetime import datetime, timedelta
+from sqlalchemy import and_
+from pytz import timezone
+
+NAIROBI_TZ = timezone('Africa/Nairobi')
+
+async def get_todays_matches(db: AsyncSession):
+    """
+    Gets all matches scheduled between 1 PM today and 3 AM tomorrow.
+    This function is designed to run daily at 1 PM.
+    """
     try:
-        ...
+        now = datetime.now(NAIROBI_TZ)
+        
+        # TODO : find a way to handle cases where the server is restarted at around past midnight
+        
+        # Set start time to 1 PM today (or current time if after 1 PM)
+        start_time = now.replace(hour=13, minute=0, second=0, microsecond=0) # this one sets the time to 1 pm that day.
+        
+        # I THINK FOR THIS PART i WILL HAVE TO MAKE THE START TIME TO BE AT 1 PM ALWAYS RIGHT. 
+        # MAYBE LATER ON , i MIGHT GO TO THE EXTENT OF CHANGING IT TO ANOHTER TIME MAYBE
+        
+        # If we're before 1 PM, use today at 1 PM
+        # If we're after 1 PM, use current time
+        """
+        if now < start_time:
+            start_time = start_time
+        else:
+            start_time = now
+        """
+        
+        # Set end time to 3 AM next day
+        end_time = (now + timedelta(days=1)).replace(hour=3, minute=0, second=0, microsecond=0)
+        
+        # Convert to timezone-naive datetime (since your DB stores naive datetimes)
+        start_time_naive = start_time.replace(tzinfo=None)
+        end_time_naive = end_time.replace(tzinfo=None)
+        
+        logger.info(f"Fetching matches from {start_time_naive} to {end_time_naive}")
+        
+        # We then query matches that are withing the times we go up there
+        query = select(Fixture).where(
+            and_(
+                Fixture.match_date >= start_time_naive,
+                Fixture.match_date < end_time_naive,
+                Fixture.fixture_status != FixtureStatus.expired  # Exclude already played matches
+            )
+        ).order_by(Fixture.match_date.asc())
+        
+        result = await db.execute(query)
+        matches = result.scalars().all()
+        
+        logger.info(f"Found {len(matches)} matches scheduled for today's polling window")
+        
+        return matches
 
     except Exception as e:
-        logger.error(f"an error occured while getting todays matches from the database, {str(e)}",
-        exc_info=True)
+        logger.error(
+            f"An error occurred while getting today's matches from the database: {str(e)}",
+            exc_info=True
+        )
         
-    raise HTTPException(
-        status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail= f"an error occured while getting today matches from the database, {str(e)}"
-    )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while getting today's matches from the database: {str(e)}"
+        )

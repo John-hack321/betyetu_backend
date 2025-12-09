@@ -69,3 +69,13 @@ class RedisStoreLiveMatch(BaseModel):
     homeTeamScore: int
     awayTeamScore: int
     time: str
+
+class RedisStoreLiveMatchVTwo(BaseModel):
+    matchId: str
+    leagueId: str
+    homeTeam: str
+    awayTeam: str
+    homeTeamScore: int
+    awayTeamScore: int
+    date: str
+    time: str
