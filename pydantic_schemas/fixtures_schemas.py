@@ -18,6 +18,7 @@ class MatchObject(BaseModel):
     is_played: bool
     league_id : int
     fixture_status: FixtureStatus
+    winner: str= None
 
 
 # data modeling for the score data returned from the match_scores api call

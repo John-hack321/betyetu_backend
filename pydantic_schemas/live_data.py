@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from typing import Optional
 
+from db.models.model_fixtures import FixtureStatus
+
 class HomeLiveMatch(BaseModel):
     id: int
     score: int
@@ -79,3 +81,46 @@ class RedisStoreLiveMatchVTwo(BaseModel):
     awayTeamScore: int
     date: str
     time: str
+    fixtureStatusInDb: FixtureStatus
+
+# just defined the full modle just incase i add something that might need the other part , but for later on we will optimize more
+class HalfsDetails(BaseModel):
+    firstHalfStarted: str
+    firstHalfEnded: str
+    secondHalfStarted: str
+    secondHalfEnded: str
+    firstExtraHalfStarted: str = ""
+    secondExtraHalfStarted: str = ""
+    gameEnded: str
+
+class ReasonDetails(BaseModel):
+    short: str
+    shortKey: str
+    long: str
+    longKey: str
+
+class MatchScoreDetails(BaseModel): # so this is the root of the response
+    status: str
+    response: 'MatchScoreResponse'
+
+class MatchScoreResponse(BaseModel):
+    status: 'MatchStatus'
+
+class MatchStatus(BaseModel):
+    utcTime: str
+    numberOfHomeRedCards: int
+    numberOfAwayRedCards: int
+    halfs: HalfsDetails
+    finished: bool
+    started: bool
+    cancelled: bool
+    awarded: bool
+    scoreStr: str
+    reason: ReasonDetails
+    whoLostOnPenalties: Optional[str] = None
+    whoLostOnAggregated: str
+
+class ParsedScoreData(BaseModel):
+    homeScore: int
+    awayScore: int
+    finished: bool

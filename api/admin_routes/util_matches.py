@@ -18,6 +18,8 @@ import logging
 import sys
 
 from pytz import timezone
+
+from pydantic_schemas.live_data import ParsedScoreData
 NAIROBI_TZ = timezone('Africa/Nairobi')
 
 logging.basicConfig(
@@ -48,6 +50,7 @@ async def add_match_to_db(db : AsyncSession , match_data : MatchObject):
         home_score= match_data.home_score,
         away_score= match_data.away_score,
         fixture_status= match_data.fixture_status,
+        winner= match_data.winner,
     )
 
     db.add(db_object)
@@ -280,7 +283,7 @@ async def convert_fixtures_result_object_from_to_db_desired_return_object(rows):
         )
 
 
-async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: int, match_scores_data: FixtureScoreResponse) -> str:
+async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: int, match_scores_data: FixtureScoreResponse | ParsedScoreData) -> str:
     """
     uses the match socores to determine the match outcome ( determine the winnig team)
     it update the fixture object in the db , with the winning team data 
@@ -393,4 +396,100 @@ async def get_todays_matches(db: AsyncSession):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while getting today's matches from the database: {str(e)}"
+        )
+
+async def update_home_score_and_away_score_on_db(
+    db: AsyncSession, 
+    match_id: str, 
+    home_score: int, 
+    away_score: int, 
+    fixture_status: FixtureStatus= None,
+    determine_winner: bool= None):
+    """
+        updates home score and away score on db
+        also determines winner of the match if asked
+        also update fixutre Status if asked => these last two here are for matches that have ended
+    """
+    try:
+        
+        match_id_int= int(match_id)
+        query= select(Fixture).where(Fixture.match_id== match_id_int)
+        result= await db.execute(query)
+        db_match_object= result.scalars().first()
+
+        db_match_object.home_score= home_score
+        db_match_object.away_score= away_score
+        db_match_object.outcome= f"{home_score} - {away_score}"
+
+        # fixture status will on ly be upated if it has been passed in
+        if fixture_status != None:
+            db_match_object.fixture_status= fixture_status
+
+        if determine_winner != None:
+            db_match_object.winner= await determine_match_winner(home_score, away_score)
+
+        await db.commit()
+        await db.refresh(db_match_object)
+        return db_match_object
+
+    except Exception as e :
+        await db.rollback()
+
+        logger.error(f"an error occured while updating the match scores on the database, {str(e)}", exc_info=True)
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while updating home and away score on the db, {str(e)}"
+        )
+
+
+async def update_fixture_status_in_db(db: AsyncSession,match_id: str,  fixture_status: FixtureStatus):
+    try :
+
+        match_id_int= int(match_id)
+        query= select(Fixture).where(Fixture.match_id == match_id_int)
+        result= await db.execute(query)
+        db_match_object= result.scalars().first()
+
+        db_match_object.fixture_status= fixture_status
+
+        await db.commit()
+        await db.refresh(db_match_object)
+
+        return db_match_object
+
+    except Exception as e:
+        await db.rollback()
+
+        logger.error(f"an error occured while trying to update fixture of id {match_id} to {fixture_status}",
+        exc_info=True, 
+        extra={
+            "affected_match": match_id
+        })
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while trying to update fixture status on the db"
+        )
+
+async def determine_match_winner(home_score: int, away_score: int) -> str:
+    try: 
+        if home_score > away_score:
+            winner= "home"
+        elif home_score < away_score:
+            winner= "away"
+        elif home_score == away_score:
+            winner= "draw"
+        else:
+            winner= "draw"
+
+        return winner
+
+    except Exception as e:
+        logger.error(f" an error occured while determing the match winner : {str(e)}",
+        exc_info=True,)
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while trying to update the match winner, {str(e)}"
         )

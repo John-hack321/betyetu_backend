@@ -134,6 +134,14 @@ class FootballDataService():
             fixture_status= FixtureStatus.future
             if is_played == True:
                 fixture_status= FixtureStatus.expired
+                if int(home_score) > int(away_score):
+                    winner= "home"
+                elif int(away_score) > int(home_score):
+                    winner= "away"
+                elif int(home_score) == int(away_score):
+                    winner= "draw"
+                else:
+                    winner="draw"
 
             league_id= league_id
             
@@ -152,6 +160,7 @@ class FootballDataService():
                 'outcome' : outcome,
                 'league_id' : league_id,
                 'fixture_status': fixture_status,
+                'winner': winner,
             }
 
             # appranetly in pydantic version 2 you have to use the model_validate when passing a dictionary to a pydantic basemodel
@@ -161,7 +170,7 @@ class FootballDataService():
 
         return parsed_match_object_list
 
-    async def add_parsed_matches_object_to_database(self,db : AsyncSession, matches_object_list : MatchObject):
+    async def add_parsed_matches_object_to_database(self,db : AsyncSession, matches_object_list :list[MatchObject]):
         """
         we will use a loop to add the data to the database
         """

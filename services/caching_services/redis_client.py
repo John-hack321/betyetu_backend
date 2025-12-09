@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.admin_routes.util_leagues import get_popular_leageus_ids_from_db
 from api.admin_routes.util_matches import get_todays_matches
+from db.models.model_fixtures import FixtureStatus
 from pydantic_schemas.live_data import RedisStoreLiveMatch
 from pydantic_schemas.live_data import RedisStoreLiveMatchVTwo
 
@@ -184,22 +185,23 @@ async def cache_todays_matches(db: AsyncSession):
 
         if not db_todays_matches:
             logger.info(f"we were unable to get todays matches from the db")
-
             db_todays_matches= []  # make it to be just an empty object now so that the programm does not fail.
 
         for item in db_todays_matches:
 
             # so the matches are set into the redis store using their match ids as the id that will be used for querying them if qurying will be necesary at one point
+            match_date_str = item.match_date.isoformat() if item.match_date else ""
 
             item= RedisStoreLiveMatchVTwo(
-                matchId= item.match_id,
-                leagueId= item.league_id,
+                matchId= str(item.match_id),
+                leagueId= str(item.league_id),
                 homeTeam= item.home_team,
                 awayTeam= item.away_team,
                 homeTeamScore= item.home_score,
                 awayTeamScore= item.away_score,
-                date= item.match_date,
-                time= ""
+                date= match_date_str,
+                time= "",
+                fixtureStatusInDb= FixtureStatus.future, # will be set to futre by default and manipulated along the way as we handle the match data on the go
             )
 
             r.hset("live_matches",
@@ -224,11 +226,26 @@ async def cache_todays_matches(db: AsyncSession):
 
 
 async def get_chached_matches():
+    """
+    returns a parsed list of the live matches store on redis: NOTE: not all of the matches are live
+    """
     try:
         redis_live_matches= r.hgetall('live_matches')
-        logger.info(f"the live matches gotten from the redis store are:", redis_live_matches)
+        
+        redis_matches_list: list[RedisStoreLiveMatchVTwo] = []
 
-        return redis_live_matches
+        for match_id, match_json in redis_live_matches.items():
+            match_data= json.loads(match_json)
+
+            redis_match= RedisStoreLiveMatchVTwo(**match_data)
+
+            redis_matches_list.append(redis_match)
+
+        print('the matches gotten from the redis store are')
+        for match in redis_matches_list:
+            print(f"{match.matchId}")
+
+        return redis_matches_list
 
     except Exception as e:
         logger.error(f"an error occured while getting the cached matches, {str(e)}")
@@ -236,4 +253,19 @@ async def get_chached_matches():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail= f"an error occured while trying to get cached matches from the redis stroe , {str(e)}"
+        )
+
+async def remove_match_from_redis_redis_store(match_id: str):
+    try :
+
+        r.hdel('live-matches', match_id)
+        print(f"match of id : {match_id} has been deleted from the redis store")
+    
+    except Exception as e:
+
+        logger.error(f"an error occured while trying to remove match from the redis store")
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while trying to remove match from redis store: {str(e)}"
         )
