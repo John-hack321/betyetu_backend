@@ -115,8 +115,6 @@ class PollingManager():
                     logger.info(f"reached 3AM stop time (current: {now.hour}:00), stopping polling")
                     break
 
-                await self._fetch_and_process_live_football_data(db)
-
                 # sleep for 7 seconds first
                 await asyncio.sleep(700000000000000000000) # this is for dev perposes dont forget to return this to 7 seconds
 

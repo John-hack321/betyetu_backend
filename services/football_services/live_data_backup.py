@@ -17,9 +17,7 @@ NAIROBI_TZ = timezone('Africa/Nairobi')
 
 load_dotenv()
 
-
 logger= logging.getLogger(__name__)
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -132,33 +130,30 @@ class LiveDataServiceBackup():
                 match_score_datails: ParsedScoreData = await self.get_match_score_detais(item.matchId) # this is an API call
 
                 if match_score_datails.finished == True:
-                    home_score_updated: bool= False
-                    away_score_updated: bool= False
 
                     if match_score_datails.homeScore != item.homeTeamScore:
                         item.homeTeamScore= match_score_datails.homeScore
-                        home_score_updated= True
-                        away_score_updated= True
 
                     if match_score_datails.awayScore != item.awayTeamScore:
                         item.awayTeamScore= match_score_datails.awayScore
 
                     # if the home score and away score have been upated I belive we will have to do the changes on the db too
 
-                    if home_score_updated | away_score_updated == True:
-                        db_match_object= await update_home_score_and_away_score_on_db(
-                            db,
-                            item.matchId, 
-                            match_score_datails.homeScore,
-                            match_score_datails.awayScore,
-                            FixtureStatus.expired,
-                            determine_winner= True)
+                    db_match_object= await update_home_score_and_away_score_on_db(
+                        db,
+                        item.matchId, 
+                        match_score_datails.homeScore,
+                        match_score_datails.awayScore,
+                        FixtureStatus.expired,
+                        determine_winner= True)
 
-                        if not db_match_object:
+                    if not db_match_object:
                             logger.error(f"failed to update the match object of id {item.matchId} in the database with match score data")
 
                     await remove_match_from_redis_redis_store(item.matchId)
-                    await update_fixture_status_in_db(db, item.matchId, FixtureStatus.expired)
+
+                    # since match is ended we also have to do the payouts
+                    update_stake_with_winner_data_and_do_payouts(db, item.matchId, db_match_object.winner)
 
                 # for matches that have come back as not to have ended ie: live matches
 
@@ -218,8 +213,5 @@ class LiveDataServiceBackup():
 
                     await remove_match_from_redis_redis_store(item.matchId)
                     await update_stake_with_winner_data_and_do_payouts(db, item.matchId, db_match_object.winner)
-                    # we also need to do payouts for the ended matches too
 
 liveDataBackup= LiveDataServiceBackup()
-
-# i also need a way of handling the matches that have ended well so that payouts are done and things like that right ? 
