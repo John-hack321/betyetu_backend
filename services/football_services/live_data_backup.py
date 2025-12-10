@@ -37,6 +37,7 @@ class LiveDataServiceBackup():
         self.football_data_api_key = os.getenv('FOOTBALL_API_KEY')
         self.api_host= os.getenv('API_HOST')
         self.match_score_url= os.getenv('MATCH_SCORE_URL')
+        self.event_status_url= os.getenv('EVENT_STATUS_URL')
 
 
     async def put_todays_matches_on_redis(self, db: AsyncSession):
@@ -70,7 +71,7 @@ class LiveDataServiceBackup():
         'x-rapidapi-host': self.api_host
         }
 
-        url= f"{self.match_score_url}{match_id}"
+        url= f"{self.event_status_url}{match_id}"
 
         try:
             async with aiohttp.ClientSession() as session:

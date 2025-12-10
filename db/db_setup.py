@@ -23,15 +23,17 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency function that yields db sessions
     """
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            # await session.close()
-            pass
+
+    session = AsyncSessionLocal()
+    try:
+        yield session
+        await session.commit()
+
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
 
 async def create_database() -> None:
     """
