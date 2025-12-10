@@ -11,7 +11,7 @@ import os
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pydantic_schemas.live_data import RedisStoreLiveMatchVTwo
-from services.caching_services.redis_client import get_cached_matches, get_chached_matches
+from services.caching_services.redis_client import get_cached_matches
 from services.football_services import live_data_backup
 from services.football_services.football_data_livedata import LiveDataService
 from services.football_services.live_data_backup import LiveDataServiceBackup
