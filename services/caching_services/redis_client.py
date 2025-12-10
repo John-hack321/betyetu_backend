@@ -177,7 +177,7 @@ async def cache_todays_matches(db: AsyncSession):
             str(item.matchId),
             item.json())
 
-            return True
+        return True
 
     except HTTPException:
         # rethrow these ones

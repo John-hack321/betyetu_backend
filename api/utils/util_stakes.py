@@ -190,13 +190,13 @@ async def set_possible_win_and_add_to_db(db: AsyncSession, stake_id: int):
         await db.rollback()
 
         logger.error(f"an error occured while setting possible win",
-         exc_info=True,
-         extra={"affected_stake": stake_id})
+        exc_info=True,
+        extra={"affected_stake": stake_id})
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while setting possible win to stake of stake id: {stake_id}"
-         )
+        )
 
 # used to get the stake by match id from the database
 async def update_stake_data_with_match_ended_data(db: AsyncSession, match_id: int):

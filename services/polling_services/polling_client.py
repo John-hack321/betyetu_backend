@@ -1,7 +1,6 @@
 import asyncio
-from datetime import datetime
-from time import timezone as std_timezone
-from fastapi import HTTPException, status, HTTPException
+from datetime import datetime, timedelta
+from fastapi import HTTPException, status
 
 import logging
 import sys
@@ -12,10 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pydantic_schemas.live_data import RedisStoreLiveMatchVTwo
 from services.caching_services.redis_client import get_cached_matches
-from services.football_services import live_data_backup
-from services.football_services.football_data_livedata import LiveDataService
-from services.football_services.live_data_backup import LiveDataServiceBackup
-from services.football_services.live_data_backup import liveDataBackup
+from services.football_services.live_data_backup import LiveDataServiceBackup, liveDataBackup
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -24,8 +20,6 @@ from pytz import timezone
 # Define timezone
 NAIROBI_TZ = timezone('Africa/Nairobi')
 from api.utils.dependancies import db_dependancy
-
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,147 +30,238 @@ logging.basicConfig(
     ]
 )
 
-logger= logging.getLogger(__name__)
-
+logger = logging.getLogger(__name__)
 load_dotenv()
+
 
 class PollingManager():
     """
-    manages the live data polling service
-    ensures that only one polling task is running at a time
+    Manages the live data polling service with intelligent resource optimization.
+    Only polls actively when matches are imminent or live.
     """
     def __init__(self):
-        self.current_task= None
-        self.live_data_service= LiveDataService()
-        self.football_data_api_key= os.getenv("FOOTBALL_API_KEY")
-        self.matches_cached= False
-        self.live_data_service_backup= LiveDataServiceBackup()
-        
+        self.current_task = None
+        self.live_data_service_backup = LiveDataServiceBackup()
+        self.football_data_api_key = os.getenv("FOOTBALL_API_KEY")
+        self.matches_cached = False
+        self.PRE_MATCH_BUFFER_MINUTES = 30  # Start polling 30 mins before first match
 
-    # check if theres a task that is running
     def is_running(self):
+        """Check if polling task is currently running"""
         return self.current_task and not self.current_task.done()
 
-    
-    # starting the task
     async def start(self, db: db_dependancy):
+        """Start the polling manager"""
         if self.is_running():
-            logger.warning(f"polling already running, ignoring start request")
+            logger.warning("Polling already running, ignoring start request")
+            return
 
-        logger.info(f"starting live data polling")
+        logger.info("Starting live data polling manager")
+        
+        # Cache matches if not already done
         if not self.matches_cached:
-            try :
-                logger.info(f"caching matches to redis now")
+            try:
+                logger.info("Caching today's matches to Redis...")
                 await liveDataBackup.put_todays_matches_on_redis(db)
-                self.matches_cached= True
-
+                self.matches_cached = True
+                logger.info("✓ Matches successfully cached to Redis")
             except Exception as e:
-                logger.error(f"there was an error caching the matches")
-
+                logger.error(f"Failed to cache matches: {str(e)}")
                 raise HTTPException(
-                    status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail= f"an error occured while trying to cache the matches"
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error caching matches: {str(e)}"
                 )
 
-        self.current_task= asyncio.create_task(self._poll_loop(db))
-        # and like that we will have created the task and made it to run
+        self.current_task = asyncio.create_task(self._poll_loop(db))
 
-    # stoping the polling task
     async def stop(self):
-        """top polling gracefully"""
+        """Stop polling gracefully"""
         if self.current_task and not self.current_task.done():
-            logger.info(f"stopping the polling taks")
+            logger.info("Stopping polling task...")
             self.current_task.cancel()
             try:
                 await self.current_task
             except asyncio.CancelledError:
-                logger.info(f"polling task has been cancelled successfully")
+                logger.info("✓ Polling task cancelled successfully")
 
-    """
-        async def _fetch_and_process_live_football_data(self, db: AsyncSession):
-            NOTE : these two down here are coments if made to be actvie make sure they are commented 
-            fetches live football data from the api endpoint
-            proesses the data form the endpoint
+    async def _calculate_sleep_until_first_match(self, redis_matches: list[RedisStoreLiveMatchVTwo]) -> int:
+        """
+        Calculate optimal sleep time until first match.
+        Returns sleep seconds, or 0 if should start polling immediately.
+        """
+        if not redis_matches:
+            logger.info("No matches in Redis, no need to poll")
+            return -1  # Signal to exit
 
+        now = datetime.now(NAIROBI_TZ).replace(tzinfo=None)
+        
+        # Find earliest match time
+        earliest_match_time = None
+        for match in redis_matches:
             try:
-                logger.info("sending the request for live data now")
-                # Call the public method that handles the private method call
-                live_data = await self.live_data_service.get_live_football_data(self.football_data_api_key)
-
-                if live_data:
-                    logger.info("now processing the data")
-                    await self.live_data_service.process_live_football_data(live_data, db)
-
-            except Exception:
-                raise # raise previouse excpetions
-
-            except HTTPException as e:
-                # catch any other httpexception
-                logger.error(f"an unxepected error occured while fetching and processing data: {str(e)}",
-                exc_info=True,
-                extra= {
-
-                })
-                
-                raise HTTPException(
-                    status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"an error occured while fetching and processing live data"
-                )
-    """
-
-    # the polling loop itself
-    async def _poll_loop(self, db: AsyncSession):
-        # the main polling loop runs every 7 seconds and self terminates at 3 am
-        logger.info(f"the polling loop has been started")
-        # this is the main loop logic , ti runs every 60 seconds and only stops when 3 am reaches
-
-        iteration_count= 0
-
-        while True:
-            try:
-                now = datetime.now(NAIROBI_TZ)
-                iteration_count += 1
-                
-
-                # check if we have reached 3AM which is the stopping time
-                if now.hour >= 3 and now.hour < 13:
-                    logger.info(f"reached 3AM stop time (current: {now.hour}:00), stopping polling")
-                    break
-
-                try:
-                    redis_matches_list: list[RedisStoreLiveMatchVTwo]= await get_cached_matches()
-                    await liveDataBackup.handle_matches_iteration(redis_matches_list, db)
-
-                    logger.info(f"iteration count {iteration_count} has been completd successfuly")
-
-                except Exception as e:
-                    logger.error(f"an error occured while initiating iteration, {str(e)}")
-
-                    raise HTTPException(
-                        status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail= f"an error occured while initiating iteration, {str(e)}"
-                    )
-
-                # sleep for 7 seconds first
-                await asyncio.sleep(60) # this is for dev perposes dont forget to return this to 7 seconds
-
-            except asyncio.CancelledError:
-                logger.info(f"Polling loop cancelled")
-                break
-            
+                match_date = datetime.fromisoformat(match.date)
+                if earliest_match_time is None or match_date < earliest_match_time:
+                    earliest_match_time = match_date
             except Exception as e:
-                logger.error(f"an error in polling loop: {str(e)}",
-                exc_info=True)
+                logger.error(f"Error parsing match date for {match.matchId}: {str(e)}")
+                continue
 
-                await asyncio.sleep(60)
+        if earliest_match_time is None:
+            logger.warning("Could not determine earliest match time")
+            return 0  # Start polling immediately as fallback
 
-# we will maintain a global polling manager instance
-polling_manager= PollingManager()
+        # Calculate time until match
+        time_until_match = earliest_match_time - now
+        minutes_until_match = time_until_match.total_seconds() / 60
+
+        logger.info(f"📅 Earliest match at: {earliest_match_time.strftime('%H:%M:%S')}")
+        logger.info(f"⏰ Current time: {now.strftime('%H:%M:%S')}")
+        logger.info(f"⏳ Time until match: {int(minutes_until_match)} minutes")
+
+        # If match has already started or is within buffer time, start immediately
+        if minutes_until_match <= self.PRE_MATCH_BUFFER_MINUTES:
+            logger.info(f"✓ Match starting soon or already started, beginning active polling")
+            return 0
+
+        # Calculate sleep time (wake up buffer minutes before match)
+        sleep_minutes = minutes_until_match - self.PRE_MATCH_BUFFER_MINUTES
+        sleep_seconds = int(sleep_minutes * 60)
+
+        logger.info(f"💤 Sleeping for {int(sleep_minutes)} minutes until {self.PRE_MATCH_BUFFER_MINUTES} mins before match")
+        logger.info(f"⏰ Will resume polling at approximately: {(now + timedelta(seconds=sleep_seconds)).strftime('%H:%M:%S')}")
+        
+        return sleep_seconds
+
+    async def _check_if_all_matches_processed(self, redis_matches: list[RedisStoreLiveMatchVTwo]) -> bool:
+        """
+        Check if all cached matches have been processed (finished).
+        Returns True if we can stop polling early.
+        """
+        if not redis_matches:
+            logger.info("📭 No matches remaining in Redis cache")
+            return True
+
+        now = datetime.now(NAIROBI_TZ).replace(tzinfo=None)
+        cutoff_time = now - timedelta(hours=2)
+
+        # Check if any matches are still relevant (not older than 2 hours)
+        relevant_matches = 0
+        for match in redis_matches:
+            try:
+                match_date = datetime.fromisoformat(match.date)
+                if match_date >= cutoff_time:
+                    relevant_matches += 1
+            except Exception as e:
+                logger.error(f"Error checking match {match.matchId}: {str(e)}")
+                continue
+
+        if relevant_matches == 0:
+            logger.info("✓ All matches processed (all older than 2 hours)")
+            return True
+
+        logger.info(f"📊 {relevant_matches} matches still being tracked")
+        return False
+
+    async def _poll_loop(self, db: AsyncSession):
+        """
+        Optimized polling loop with intelligent sleep/wake cycles.
+        Only actively polls when matches are imminent or live.
+        """
+        logger.info("=" * 60)
+        logger.info("🚀 POLLING LOOP STARTED")
+        logger.info("=" * 60)
+
+        try:
+            # Initial check: should we sleep until first match?
+            redis_matches = await get_cached_matches()
+            sleep_seconds = await self._calculate_sleep_until_first_match(redis_matches)
+
+            if sleep_seconds == -1:
+                logger.info("No matches to poll, exiting")
+                return
+
+            if sleep_seconds > 0:
+                logger.info(f"💤 Initial sleep: {sleep_seconds} seconds ({sleep_seconds/60:.1f} minutes)")
+                await asyncio.sleep(sleep_seconds)
+                logger.info("⏰ Waking up - starting active polling phase")
+
+            # Active polling phase
+            iteration_count = 0
+            consecutive_empty_iterations = 0
+            MAX_EMPTY_ITERATIONS = 5  # Stop if no matches for 5 iterations
+
+            while True:
+                try:
+                    now = datetime.now(NAIROBI_TZ)
+                    iteration_count += 1
+
+                    logger.info("-" * 60)
+                    logger.info(f"🔄 ITERATION #{iteration_count} - {now.strftime('%H:%M:%S')}")
+                    logger.info("-" * 60)
+
+                    # Check if we've passed 3 AM cutoff
+                    if now.hour >= 3 and now.hour < 13:
+                        logger.info(f"⏰ Reached 3 AM cutoff (current: {now.hour}:00)")
+                        logger.info("🛑 Stopping polling until next scheduled run at 1 PM")
+                        break
+
+                    # Get current matches and check if all processed
+                    redis_matches = await get_cached_matches()
+                    
+                    if await self._check_if_all_matches_processed(redis_matches):
+                        consecutive_empty_iterations += 1
+                        logger.info(f"📭 No active matches ({consecutive_empty_iterations}/{MAX_EMPTY_ITERATIONS})")
+                        
+                        if consecutive_empty_iterations >= MAX_EMPTY_ITERATIONS:
+                            logger.info("=" * 60)
+                            logger.info("✅ ALL MATCHES PROCESSED - EARLY TERMINATION")
+                            logger.info(f"📊 Total iterations completed: {iteration_count}")
+                            logger.info(f"⏰ Stopped at: {now.strftime('%H:%M:%S')}")
+                            logger.info("🛑 Polling will resume tomorrow at 1 PM")
+                            logger.info("=" * 60)
+                            break
+                    else:
+                        consecutive_empty_iterations = 0  # Reset counter
+
+                    # Process matches
+                    try:
+                        await liveDataBackup.handle_matches_iteration(redis_matches, db)
+                        logger.info(f"✓ Iteration #{iteration_count} completed successfully")
+                    except Exception as e:
+                        logger.error(f"❌ Error in iteration #{iteration_count}: {str(e)}", exc_info=True)
+                        # Continue polling despite errors
+
+                    # Sleep before next iteration
+                    logger.info(f"💤 Sleeping 60 seconds before next iteration...")
+                    await asyncio.sleep(60)
+
+                except asyncio.CancelledError:
+                    logger.info("🛑 Polling loop cancelled")
+                    raise
+                except Exception as e:
+                    logger.error(f"❌ Error in polling iteration: {str(e)}", exc_info=True)
+                    await asyncio.sleep(60)  # Continue after error
+
+        except asyncio.CancelledError:
+            logger.info("🛑 Polling loop cancelled")
+        except Exception as e:
+            logger.error(f"❌ Fatal error in polling loop: {str(e)}", exc_info=True)
+        finally:
+            logger.info("=" * 60)
+            logger.info("🏁 POLLING LOOP TERMINATED")
+            logger.info(f"📊 Final iteration count: {iteration_count if 'iteration_count' in locals() else 0}")
+            logger.info(f"⏰ Terminated at: {datetime.now(NAIROBI_TZ).strftime('%H:%M:%S')}")
+            logger.info("=" * 60)
+
+
+# Global polling manager instance
+polling_manager = PollingManager()
+
 
 def schedule_daily_polling(scheduler: AsyncIOScheduler):
     """
-    Schedule polling to start at 1 pm every day
-    Uses cron trigger for precise daily scheduling
+    Schedule polling to start at 1 PM every day.
+    Uses cron trigger for precise daily scheduling.
     """
     from db.db_setup import get_db
 
@@ -201,17 +286,21 @@ def schedule_daily_polling(scheduler: AsyncIOScheduler):
         name="Start Live Data Polling",
         replace_existing=True
     )
-    logger.info(f"schedule daily polling start at 1 pm EAT")
+    logger.info("✓ Scheduled daily polling start at 1:00 PM EAT")
+
 
 def should_start_polling_now():
     """
-    check if we shold start polling immediately
-    return true if current time is between 1 pm and 3 am
+    Check if we should start polling immediately on startup.
+    Returns True if current time is between 1 PM and 3 AM.
     """
-
-    now= datetime.now(NAIROBI_TZ)
-    if 13 <= now.hour<= 23:
+    now = datetime.now(NAIROBI_TZ)
+    
+    # Between 1 PM (13:00) and midnight
+    if 13 <= now.hour <= 23:
         return True
+    
+    # Between midnight and 3 AM
     if 0 <= now.hour < 3:
         return True
 
