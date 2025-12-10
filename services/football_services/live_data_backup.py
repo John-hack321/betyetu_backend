@@ -10,7 +10,7 @@ from api.admin_routes.util_matches import update_fixture_status_in_db, update_ho
 from api.utils.util_stakes import update_stake_with_winner_data_and_do_payouts
 from db.models.model_fixtures import FixtureStatus
 from pydantic_schemas.live_data import MatchScoreDetails, ParsedScoreData, RedisStoreLiveMatchVTwo
-from services.caching_services.redis_client import cache_todays_matches, remove_match_from_redis_redis_store
+from services.caching_services.redis_client import cache_todays_matches, remove_match_from_redis_redis_store, update_live_match_away_score, update_live_match_home_score
 
 from datetime import datetime, timedelta
 NAIROBI_TZ = timezone('Africa/Nairobi')
@@ -65,7 +65,7 @@ class LiveDataServiceBackup():
         'x-rapidapi-host': self.api_host
         }
 
-        url= f"self.match_score_url{match_id}"
+        url= f"{self.match_score_url}{match_id}"
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -107,8 +107,7 @@ class LiveDataServiceBackup():
 
         also does payouts at the end too
         """
-
-        for item in redis_matches_list: 
+        try:
 
             now = datetime.now(NAIROBI_TZ).replace(tzinfo=None)
             cutoff_time = now - timedelta(hours=2)
@@ -116,102 +115,138 @@ class LiveDataServiceBackup():
             logger.info(f"Current time: {now}")
             logger.info(f"Cutoff time: {cutoff_time}")
 
-            match_date = datetime.fromisoformat(item.date)
 
-            if match_date <= now and match_date >= cutoff_time: # only matches that pass the time comparison will have passed this part
-                # these matches that pass this time check are set to live both on the redis store and on the db
+            for item in redis_matches_list: 
 
-                if item.fixtureStatusInDb == FixtureStatus.future:
-                    item.fixtureStatusInDb= FixtureStatus.live
+                try:
+                    match_date = datetime.fromisoformat(item.date)
+        
+                    if match_date <= now and match_date >= cutoff_time: # only matches that pass the time comparison will have passed this part
+                        # these matches that pass this time check are set to live both on the redis store and on the db
+        
+                        if item.fixtureStatusInDb == FixtureStatus.future:
+                            item.fixtureStatusInDb= FixtureStatus.live
+                            await update_fixture_status_in_db(db, item.matchId, FixtureStatus.live)
+                            logger.info(f"the status for match of match_id: {item.matchId} as been updated to {FixtureStatus.live}")
+        
+                        match_score_datails: ParsedScoreData = await self.get_match_score_detais(item.matchId) # this is an API call
+        
+                        if not match_score_datails: 
+                            # if the api call we continue to the next match rather than stopping the whole system
+                            continue 
+                        
+                        if match_score_datails.finished == True:
+                            logger.info(f"match of id: {item.matchId} has come back as finished")
+        
+                            if match_score_datails.homeScore != item.homeTeamScore:
+                                item.homeTeamScore= match_score_datails.homeScore
+        
+                            if match_score_datails.awayScore != item.awayTeamScore:
+                                item.awayTeamScore= match_score_datails.awayScore
+        
+                            # somewhere around here we might maybe need to update the redis store too, but for such ended matches I dont think if its that important
+        
+                            # if the home score and away score have been upated I belive we will have to do the changes on the db too
+        
+                            db_match_object= await update_home_score_and_away_score_on_db(
+                                db,
+                                item.matchId, 
+                                match_score_datails.homeScore,
+                                match_score_datails.awayScore,
+                                FixtureStatus.expired,
+                                determine_winner= True)
+        
+                            if db_match_object:
+                                await remove_match_from_redis_redis_store(item.matchId)
+        
+                                # since match is ended we also have to do the payouts
+                                await update_stake_with_winner_data_and_do_payouts(
+                                    db, 
+                                    item.matchId, 
+                                    db_match_object.winner)
+        
+                        # for matches that have come back as not to have ended ie: live matches
+        
+                        else: 
+                            home_score_updated: bool= False
+                            away_score_updated: bool= False
+        
+                            if match_score_datails.homeScore != item.homeTeamScore:
+                                item.homeTeamScore= match_score_datails.homeScore
+                                home_score_updated= True
+                                await update_live_match_home_score(item.matchId, match_score_datails.homeScore)
+        
+                            if match_score_datails.awayScore != item.awayTeamScore:
+                                item.awayTeamScore= match_score_datails.awayScore
+                                away_score_updated= True
+                                await update_live_match_away_score(item.matchId, match_score_datails.awayScore)
+        
+                            if home_score_updated | away_score_updated == True:
+                                db_match_object= await update_home_score_and_away_score_on_db(
+                                    db, 
+                                    item.matchId, 
+                                    match_score_datails.homeScore,
+                                    match_score_datails.awayScore) # here we wont need to update the fixture status as it is already live and the match isnt ended yet
+        
+                                # find a way to do update on frontend using web sockets for real time update
+                                # await send_update_to_frontend(match_id, match_score_datails.homeScore, match_score_datails.awayScore )
+                    
+                    elif match_date > now:
+                        logger.info(f"✗ Match {item.matchId} hasn't started yet (starts at {match_date})")
+                        # Keep in Redis for now
+                        continue # we jump to the next match
+                        
+                    else: 
+                        # this one will now occure for matches that started more than 2 hours ago
+                        # for them we will aso do a bit of processing to ensure everthing is upto date both on front and back
+        
+                        match_score_datails: ParsedScoreData = await self.get_match_score_detais(item.matchId) # this is an API call
+                        if match_score_datails and match_score_datails.finished:
+                            home_score_updated: bool= False
+                            away_score_updated: bool= False
+        
+                            if match_score_datails.homeScore != item.homeTeamScore:
+                                item.homeTeamScore= match_score_datails.homeScore # is it realy necesary to update this , I think its just a waste of time right cause its not being used anywhere
+                                await update_live_match_home_score(item.matchId, match_score_datails.homeScore)
+        
+                            if match_score_datails.awayScore != item.awayTeamScore:
+                                item.awayTeamScore= match_score_datails.awayScore
+                                await update_live_match_away_score(item.matchId, match_score_datails.awayScore)
+        
+                            # if the home score and away score have been upated I belive we will have to do the changes on the db too
+        
+                            # no matter what we will alwasy call the match object from db and thus we just call it anyways whether the scores have been updated or not
+                            db_match_object= await update_home_score_and_away_score_on_db(
+                                db,
+                                item.matchId, 
+                                match_score_datails.homeScore,
+                                match_score_datails.awayScore,
+                                FixtureStatus.expired ,
+                                determine_winner= True) # we determine the winner since it is set to True
+        
+                            if db_match_object:
+                                await remove_match_from_redis_redis_store(item.matchId)
+                                await update_stake_with_winner_data_and_do_payouts(
+                                    db, 
+                                    item.matchId, 
+                                    db_match_object.winner)
 
-                    # update to live in the db too 
-                    await update_fixture_status_in_db(db, item.matchId, FixtureStatus.live)
 
-                match_score_datails: ParsedScoreData = await self.get_match_score_detais(item.matchId) # this is an API call
+                except Exception as match_error:
+                    logger.error(f"Error processing match {item.matchId}: {str(match_error)}", exc_info=True)
+                    continue  # Continue with next match
 
-                if match_score_datails.finished == True:
 
-                    if match_score_datails.homeScore != item.homeTeamScore:
-                        item.homeTeamScore= match_score_datails.homeScore
+        except HTTPException:
+            raise
 
-                    if match_score_datails.awayScore != item.awayTeamScore:
-                        item.awayTeamScore= match_score_datails.awayScore
+        except Exception as e:
+            logger.error(f"an error occured while trying to handle matches iteration, {str(e)}",
+            exc_info=True)
 
-                    # if the home score and away score have been upated I belive we will have to do the changes on the db too
-
-                    db_match_object= await update_home_score_and_away_score_on_db(
-                        db,
-                        item.matchId, 
-                        match_score_datails.homeScore,
-                        match_score_datails.awayScore,
-                        FixtureStatus.expired,
-                        determine_winner= True)
-
-                    if not db_match_object:
-                            logger.error(f"failed to update the match object of id {item.matchId} in the database with match score data")
-
-                    await remove_match_from_redis_redis_store(item.matchId)
-
-                    # since match is ended we also have to do the payouts
-                    update_stake_with_winner_data_and_do_payouts(db, item.matchId, db_match_object.winner)
-
-                # for matches that have come back as not to have ended ie: live matches
-
-                home_score_updated: bool= False
-                away_score_updated: bool= False
-
-                if match_score_datails.homeScore != item.homeTeamScore:
-                        item.homeTeamScore= match_score_datails.homeScore
-                        home_score_updated= True
-
-                if match_score_datails.awayScore != item.awayTeamScore:
-                    item.awayTeamScore= match_score_datails.awayScore
-                    away_score_updated= True
-
-                if home_score_updated | away_score_updated == True:
-                    db_match_object= await update_home_score_and_away_score_on_db(
-                        db, 
-                        item.matchId, 
-                        match_score_datails.homeScore,
-                        match_score_datails.awayScore) # here we wont need to update the fixture status as it is already live and the match isnt ended yet
-
-                    # find a way to do update on frontend using web sockets for real time update
-                    # await send_update_to_frontend(match_id, match_score_datails.homeScore, match_score_datails.awayScore )
-            
-            elif match_date > now:
-                logger.info(f"✗ Match {item.matchId} hasn't started yet (starts at {match_date})")
-                # Keep in Redis for now
-                
-            else: 
-                # this one will now occure for matches that started more than 2 hours ago
-                # for them we will aso do a bit of processing to ensure everthing is upto date both on front and back
-
-                match_score_datails: ParsedScoreData = await self.get_match_score_detais(item.matchId) # this is an API call
-                if match_score_datails.finished == True:
-                    home_score_updated: bool= False
-                    away_score_updated: bool= False
-
-                    if match_score_datails.homeScore != item.homeTeamScore:
-                        item.homeTeamScore= match_score_datails.homeScore
-
-                    if match_score_datails.awayScore != item.awayTeamScore:
-                        item.awayTeamScore= match_score_datails.awayScore
-
-                    # if the home score and away score have been upated I belive we will have to do the changes on the db too
-
-                    # no matter what we will alwasy call the match object from db and thus we just call it anyways whether the scores have been updated or not
-                    db_match_object= await update_home_score_and_away_score_on_db(
-                        db,
-                        item.matchId, 
-                        match_score_datails.homeScore,
-                        match_score_datails.awayScore,
-                        FixtureStatus.expired ,
-                        determine_winner= True) # we determine the winner since it is set to True
-
-                    if not db_match_object:
-                        logger.error(f"failed to update the match object of id {item.matchId} in the database with match score data")
-
-                    await remove_match_from_redis_redis_store(item.matchId)
-                    await update_stake_with_winner_data_and_do_payouts(db, item.matchId, db_match_object.winner)
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while trying to handle matches iteration, {str(e)}"
+        )                    
 
 liveDataBackup= LiveDataServiceBackup()

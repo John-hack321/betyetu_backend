@@ -119,38 +119,7 @@ async def add_live_match_to_redis(redis_live_match: RedisStoreLiveMatch):
             detail=f"an error occured while adding the live match data to the redis store man"
         )
 
-async def update_live_match_home_score(match_id: int, home_score: int):
-    print(f"updating live match home score of match id : {match_id}")
-    try:
-        match_json = r.hget("live_matches", str(match_id))
-        
-        if match_json:
-            # Parse, update, and save back
-            match_data = json.loads(match_json)
-            match_data['homeTeamScore'] = home_score
-            r.hset("live_matches", str(match_id), json.dumps(match_data))
 
-    except Exception as e:
-        logger.error(f"an error occured while updating the home score of a live match, {str(e)}", exc_info=True)
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=f"an error occured while updating the live match {str(e)}")
-
-async def update_live_match_away_score(match_id: int, away_score: int):
-    print(f"updating live match away score of match id : {match_id}")
-    try:
-        match_json= r.hget('live_matches', str(match_id))
-
-        if match_json:
-            match_data= json.loads(match_json)
-            match_data['awayTeamScore'] = away_score
-            r.hset('live_matches', str(match_id), json.dumps(match_data))
-
-    except Exception as e:
-        logger.error(f"an error occured while updating the live match away score: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"an error occured while updating live match away_score, {str(e)}"
-        )
 
 async def update_live_match_time(match_id: int, time: str):
     print(f"updating live match time of match id : {match_id}")
@@ -225,7 +194,7 @@ async def cache_todays_matches(db: AsyncSession):
         )
 
 
-async def get_chached_matches():
+async def get_cached_matches() -> list[RedisStoreLiveMatchVTwo]:
     """
     returns a parsed list of the live matches store on redis: NOTE: not all of the matches are live
     """
@@ -268,4 +237,59 @@ async def remove_match_from_redis_redis_store(match_id: str):
         raise HTTPException(
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail= f"an error occured while trying to remove match from redis store: {str(e)}"
+        )
+
+async def update_live_match_time(match_id: int, time: str):
+    print(f"updating live match time of match id : {match_id}")
+    try:
+        match_json= r.hget('live_matches', str(match_id))
+
+        if match_json:
+            match_data= json.loads(match_json)
+            match_data['time']= time
+            r.hset('live_matches', str(match_id), json.dumps(match_data))
+
+    except Exception as e:
+        logger.error(f"an error occured while updating the live match timer")
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while updating the timer for the live match data"
+        )
+
+
+# UNIVERSAL HELPER FUNCTIONS
+# these ones work for both approaches of the live data service
+
+async def update_live_match_home_score(match_id: int, home_score: int):
+    print(f"updating live match home score of match id : {match_id}")
+    try:
+        match_json = r.hget("live_matches", str(match_id))
+        
+        if match_json:
+            # Parse, update, and save back
+            match_data = json.loads(match_json)
+            match_data['homeTeamScore'] = home_score
+            r.hset("live_matches", str(match_id), json.dumps(match_data))
+
+    except Exception as e:
+        logger.error(f"an error occured while updating the home score of a live match, {str(e)}", exc_info=True)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"an error occured while updating the live match {str(e)}")
+
+async def update_live_match_away_score(match_id: int, away_score: int):
+    print(f"updating live match away score of match id : {match_id}")
+    try:
+        match_json= r.hget('live_matches', str(match_id))
+
+        if match_json:
+            match_data= json.loads(match_json)
+            match_data['awayTeamScore'] = away_score
+            r.hset('live_matches', str(match_id), json.dumps(match_data))
+
+    except Exception as e:
+        logger.error(f"an error occured while updating the live match away score: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while updating live match away_score, {str(e)}"
         )

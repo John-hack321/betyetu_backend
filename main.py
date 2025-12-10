@@ -46,6 +46,7 @@ async def lifespan(app: FastAPI):
     setup_logging()
     
     # Get database session using async for loop
+    # this is for the initial livedata logic , we are not using it for now
     async for db in get_db():
         try:
             # Add popular leagues to Redis on startup
