@@ -67,7 +67,7 @@ class PollingManager():
         if not self.matches_cached:
             try :
                 logger.info(f"caching matches to redis now")
-                await liveDataBackup.put_todays_matches_on_redis(db)
+                await liveDataBackup.put_todays_matches_on_redis()
                 self.matches_cached= True
 
             except Exception as e:

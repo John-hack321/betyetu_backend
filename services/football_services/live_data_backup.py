@@ -12,6 +12,10 @@ from db.models.model_fixtures import FixtureStatus
 from pydantic_schemas.live_data import MatchScoreDetails, ParsedScoreData, RedisStoreLiveMatchVTwo
 from services.caching_services.redis_client import cache_todays_matches, remove_match_from_redis_redis_store, update_live_match_away_score, update_live_match_home_score
 
+from pytz import timezone
+import sys
+
+
 from datetime import datetime, timedelta
 NAIROBI_TZ = timezone('Africa/Nairobi')
 
@@ -244,9 +248,9 @@ class LiveDataServiceBackup():
             logger.error(f"an error occured while trying to handle matches iteration, {str(e)}",
             exc_info=True)
 
-        raise HTTPException(
-            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"an error occured while trying to handle matches iteration, {str(e)}"
-        )                    
+            raise HTTPException(
+                status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"an error occured while trying to handle matches iteration, {str(e)}"
+            )                    
 
 liveDataBackup= LiveDataServiceBackup()

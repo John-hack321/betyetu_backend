@@ -25,7 +25,6 @@ NAIROBI_TZ = timezone('Africa/Nairobi')
 
 load_dotenv()
 
-logger= logging.getLogger(__name__)
 
 class FootballDataService():
     def __init__(self):
