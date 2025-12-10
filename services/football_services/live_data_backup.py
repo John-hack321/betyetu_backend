@@ -38,7 +38,7 @@ class LiveDataServiceBackup():
         self.match_score_url= os.getenv('MATCH_SCORE_URL')
 
 
-    async def put_todays_matches_on_redis(db: AsyncSession):
+    async def put_todays_matches_on_redis(self, db: AsyncSession):
         try:
 
             result= await cache_todays_matches(db)
@@ -87,6 +87,17 @@ class LiveDataServiceBackup():
                             finished= response_data.response.status.finished
                         )
 
+                        # Log summary of processing
+                        logger.info("-" * 50)
+                        logger.info("📊 Match Processing Summary:")
+                        logger.info(f"   Total matches processed: 1")
+                        logger.info(f"   ✓ Valid matches: 1")
+                        logger.info(f"   ✓ Finished matches: {1 if parsed_match_scores.finished else 0}")
+                        logger.info(f"   ✓ Live matches: {1 if not parsed_match_scores.finished else 0}")
+                        logger.info(f"   ⏳ Matches not started yet: 0")
+                        logger.info(f"   ❌ Errors encountered: 0")
+                        logger.info("-" * 50)
+                        
                         return parsed_match_scores
 
                     else:
@@ -98,26 +109,36 @@ class LiveDataServiceBackup():
 
             raise HTTPException(
                 status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
-                datail= f"an error occured while fetching match score data from the api endpont: {str(e)}"
+                detail= f"an error occured while fetching match score data from the api endpont: {str(e)}"
             )
 
     async def handle_matches_iteration(self, redis_matches_list: list[RedisStoreLiveMatchVTwo], db: AsyncSession):
         """
         fetch the matches from redis
-        iterate through them one by one confirming the time on them by comparing to the tiem with a backlogo f upto 2 hours like on the db
-        if the match is marked as endend do necesary update and remove it from the redis store
-        else we upate the scores if any, push the update to the database and the frontend if possible
-        if the match has just startedn mark it as live on the db too
+        iterate through them one by one confirming the time on them by comparing to the time with a backlog of up to 2 hours like on the db
+        if the match is marked as ended do necessary update and remove it from the redis store
+        else we update the scores if any, push the update to the database and the frontend if possible
+        if the match has just started mark it as live on the db too
 
         also does payouts at the end too
         """
         try:
+            # Initialize counters
+            total_matches = len(redis_matches_list)
+            valid_matches = 0
+            finished_matches = 0
+            live_matches = 0
+            not_started_matches = 0
+            error_matches = 0
 
             now = datetime.now(NAIROBI_TZ).replace(tzinfo=None)
             cutoff_time = now - timedelta(hours=2)
 
-            logger.info(f"Current time: {now}")
-            logger.info(f"Cutoff time: {cutoff_time}")
+            logger.info(f"🔍 Starting match processing iteration")
+            logger.info(f"📊 Total matches in Redis store: {total_matches}")
+            logger.info(f"⏰ Current time: {now}")
+            logger.info(f"⏱️ Cutoff time: {cutoff_time}")
+            logger.info("-" * 50)
 
 
             for item in redis_matches_list: 
@@ -126,6 +147,7 @@ class LiveDataServiceBackup():
                     match_date = datetime.fromisoformat(item.date)
         
                     if match_date <= now and match_date >= cutoff_time: # only matches that pass the time comparison will have passed this part
+                        valid_matches += 1
                         # these matches that pass this time check are set to live both on the redis store and on the db
         
                         if item.fixtureStatusInDb == FixtureStatus.future:
@@ -140,6 +162,7 @@ class LiveDataServiceBackup():
                             continue 
                         
                         if match_score_datails.finished == True:
+                            finished_matches += 1
                             logger.info(f"match of id: {item.matchId} has come back as finished")
         
                             if match_score_datails.homeScore != item.homeTeamScore:
@@ -159,6 +182,8 @@ class LiveDataServiceBackup():
                                 match_score_datails.awayScore,
                                 FixtureStatus.expired,
                                 determine_winner= True)
+                            
+                            logger.info(f"match of ID {item.matchId} has just been updated in the db")
         
                             if db_match_object:
                                 await remove_match_from_redis_redis_store(item.matchId)
@@ -172,6 +197,7 @@ class LiveDataServiceBackup():
                         # for matches that have come back as not to have ended ie: live matches
         
                         else: 
+                            live_matches += 1
                             home_score_updated: bool= False
                             away_score_updated: bool= False
         
@@ -196,6 +222,7 @@ class LiveDataServiceBackup():
                                 # await send_update_to_frontend(match_id, match_score_datails.homeScore, match_score_datails.awayScore )
                     
                     elif match_date > now:
+                        not_started_matches += 1
                         logger.info(f"✗ Match {item.matchId} hasn't started yet (starts at {match_date})")
                         # Keep in Redis for now
                         continue # we jump to the next match
@@ -227,6 +254,8 @@ class LiveDataServiceBackup():
                                 match_score_datails.awayScore,
                                 FixtureStatus.expired ,
                                 determine_winner= True) # we determine the winner since it is set to True
+
+                            logger.info(f"mathc of id {item.matchId} has just been updated in the db")
         
                             if db_match_object:
                                 await remove_match_from_redis_redis_store(item.matchId)
@@ -236,8 +265,9 @@ class LiveDataServiceBackup():
                                     db_match_object.winner)
 
 
-                except Exception as match_error:
-                    logger.error(f"Error processing match {item.matchId}: {str(match_error)}", exc_info=True)
+                except Exception as e:
+                    error_matches += 1
+                    logger.error(f"❌ Error processing match {item.matchId}: {str(e)}", exc_info=True)
                     continue  # Continue with next match
 
 

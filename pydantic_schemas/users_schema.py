@@ -23,8 +23,8 @@ class UserResponse(UserBase): # this is the general model for response models to
 
 class Token(BaseModel):
     access_token : str
-    refresh_tokne : str
-    token_type : str   
+    refresh_token : str
+    token_type : str
 
 # actually according to what im seeing right now , we can also respond to api calls using other pydantic models for those specific response like this one here for sendiing user data 
 class UserProfileResponse(BaseModel):

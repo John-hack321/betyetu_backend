@@ -75,6 +75,7 @@ async def lifespan(app: FastAPI):
         async for db in get_db():
             try:
                 await polling_manager.start(db)
+                pass
             except Exception as e:
                 logger.error(f"Failed to start polling: {str(e)}", exc_info=True)
             finally:
