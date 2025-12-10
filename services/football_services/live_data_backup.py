@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 from dotenv import load_dotenv
 import aiohttp
 
@@ -75,8 +76,20 @@ class LiveDataServiceBackup():
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as response:
                     if response.status == 200:
-                        response_data= await response.json()
-                        response_data= MatchScoreDetails(**response_data)
+                        response_data = await response.json()
+                        logger.info(f"🔍 Raw API Response for match {match_id}:")
+                        # Pretty print the JSON response with 2-space indentation
+                        pretty_json = json.dumps(response_data, indent=2)
+                        logger.info(f"\n{pretty_json}\n")
+                        
+                        try:
+                            response_data = MatchScoreDetails(**response_data)
+                        except Exception as e:
+                            logger.error(f"❌ Error parsing API response: {str(e)}")
+                            logger.error("Response data that caused the error:")
+                            pretty_error = json.dumps(response_data, indent=2)
+                            logger.error(f"\n{pretty_error}\n")
+                            raise
 
                         # preparing the data we need to return
 
