@@ -30,7 +30,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.rollback()
             raise
         finally:
-            await session.close()
+            # await session.close()
+            pass
 
 async def create_database() -> None:
     """

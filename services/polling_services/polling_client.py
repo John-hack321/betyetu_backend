@@ -273,7 +273,8 @@ def schedule_daily_polling(scheduler: AsyncIOScheduler):
             except Exception as e:
                 logger.error(f"Failed to start polling job: {str(e)}", exc_info=True)
             finally:
-                await db.close()
+                # await db.close()
+                pass
 
     scheduler.add_job(
         start_polling_job,
