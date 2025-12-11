@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     # ✅ Add popular leagues to Redis on startup - Let get_db() manage session
     async for db in get_db():
         try:
-            await add_popular_leagues_to_redis(db)
+            # await add_popular_leagues_to_redis(db)
             logger.info("Successfully added popular leagues to Redis cache on startup")
         except Exception as e:
             logger.error(f"Failed to add popular leagues to Redis on startup: {str(e)}", exc_info=True)

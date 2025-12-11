@@ -15,6 +15,8 @@ from db.models.model_fixtures import FixtureStatus
 from pydantic_schemas.live_data import RedisStoreLiveMatch
 from pydantic_schemas.live_data import RedisStoreLiveMatchVTwo
 
+from datetime import datetime, timedelta
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(funcName)s() | %(message)s',
@@ -42,6 +44,8 @@ r2= redis.Redis(
     decode_responses=True,
     db=2
 )
+
+# FOR THE OLD POLLING LOOP LOGIC: STARTS HERE
 
 # popular leageus will be added to redis on startup
 # this will always be called on startup of the application
@@ -144,23 +148,33 @@ async def update_live_match_time(match_id: int, time: str):
             detail=f"an error occured while updating the timer for the live match data"
         )
 
+# OLD POLLING LOOP MATCH REDIS LOGIC END HERE 
+
 
 # ALTERNATIVE MATCH HANDLING FUNCTIONS
 
 # functinalitis for the alternative match handling
 async def cache_todays_matches(db: AsyncSession):
     """
-    we will be caching todays matches for efficient accesst to them 
+    Cache today's matches in Redis for efficient access.
+    
+    This function will first flush all existing matches from the Redis store
+    before adding the current day's matches to ensure we don't have stale data.
     """
-
-    try :
-
-        db_todays_matches= await get_todays_matches(db)
+    try:
+        # First, flush all existing matches to ensure a clean slate
+        logger.info("Flushing existing matches from Redis store before caching today's matches")
+        flush_all_matches()
+        
+        # Get today's matches from the database
+        db_todays_matches = await get_todays_matches(db)
 
         if not db_todays_matches:
-            logger.info(f"we were unable to get todays matches from the db")
-            db_todays_matches= []  # make it to be just an empty object now so that the programm does not fail.
+            logger.info("No matches found in the database for today")
+            return True  # Return success but with no matches to cache
 
+        logger.info(f"Caching {len(db_todays_matches)} matches in Redis")
+        
         for item in db_todays_matches:
 
             # so the matches are set into the redis store using their match ids as the id that will be used for querying them if qurying will be necesary at one point
@@ -230,18 +244,18 @@ async def get_cached_matches() -> list[RedisStoreLiveMatchVTwo]:
         )
 
 async def remove_match_from_redis_redis_store(match_id: str):
-    try :
-
-        r.hdel('live-matches', match_id)
-        print(f"match of id : {match_id} has been deleted from the redis store")
+    try:
+        # Using consistent key name with underscore to match other functions
+        r.hdel('live_matches', match_id)
+        logger.info(f"Match ID {match_id} has been deleted from the redis store")
     
     except Exception as e:
-
-        logger.error(f"an error occured while trying to remove match from the redis store")
+        error_msg = f"An error occurred while trying to remove match {match_id} from the redis store: {str(e)}"
+        logger.error(error_msg)
 
         raise HTTPException(
-            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail= f"an error occured while trying to remove match from redis store: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg
         )
 
 async def update_live_match_time(match_id: int, time: str):
@@ -297,6 +311,70 @@ async def update_live_match_away_score(match_id: int, away_score: int):
         return False
     except Exception as e:
         logger.error(f"Error updating away score for match {match_id}: {str(e)}")
+        return False
+
+
+async def cleanup_old_matches(hours_old: int = 2):
+    """
+    Remove matches from Redis that are older than the specified hours.
+    
+    Args:
+        hours_old: Number of hours after which a match is considered old
+    """
+    try:
+        # Get all matches from Redis
+        all_matches = r.hgetall("live_matches")
+        cutoff_time = datetime.utcnow() - timedelta(hours=hours_old)
+        removed_count = 0
+        
+        logger.info(f"🧹 Starting cleanup of matches older than {hours_old} hours")
+        logger.info(f"⏰ Cutoff time: {cutoff_time.isoformat()}")
+        
+        for match_id, match_json in all_matches.items():
+            try:
+                match_data = json.loads(match_json)
+                
+                # Check if match has a timestamp
+                if 'timestamp' in match_data:
+                    match_time = datetime.fromisoformat(match_data['timestamp'])
+                    
+                    if match_time < cutoff_time:
+                        r.hdel("live_matches", match_id)
+                        removed_count += 1
+                        logger.info(f"🗑️  Removed old match {match_id} (timestamp: {match_time.isoformat()})")
+                
+                # Also check match date
+                elif 'date' in match_data:
+                    match_date = datetime.fromisoformat(match_data['date'])
+                    
+                    if match_date < cutoff_time:
+                        r.hdel("live_matches", match_id)
+                        removed_count += 1
+                        logger.info(f"🗑️  Removed old match {match_id} (date: {match_date.isoformat()})")
+                        
+            except Exception as e:
+                logger.error(f"❌ Error processing match {match_id}: {str(e)}")
+                continue
+        
+        logger.info(f"✅ Cleanup complete: Removed {removed_count} old matches from Redis")
+        return removed_count
+        
+    except Exception as e:
+        logger.error(f"❌ Error in cleanup_old_matches: {str(e)}", exc_info=True)
+        return 0
+
+
+async def flush_all_matches():
+    """
+    Manually flush all matches from Redis.
+    Use with caution - this removes ALL match data.
+    """
+    try:
+        r.delete("live_matches")
+        logger.info("🗑️  Flushed all matches from Redis")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Error flushing matches: {str(e)}")
         return False
 
 

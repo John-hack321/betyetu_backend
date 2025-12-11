@@ -69,4 +69,8 @@ mypy==1.5.1
 flake8==6.1.0
 
 # Type Hints
-typing-extensions==4.8.0aiosmtplib==3.0.1
+typing-extensions==4.8.0
+aiosmtplib==3.0.1
+
+# Redis
+redis==5.0.1
