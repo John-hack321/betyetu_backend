@@ -45,18 +45,14 @@ async def lifespan(app: FastAPI):
     
     setup_logging()
     
-    # Get database session using async for loop
-    # this is for the initial livedata logic , we are not using it for now
+    # ✅ Add popular leagues to Redis on startup - Let get_db() manage session
     async for db in get_db():
         try:
-            # Add popular leagues to Redis on startup
             await add_popular_leagues_to_redis(db)
             logger.info("Successfully added popular leagues to Redis cache on startup")
         except Exception as e:
             logger.error(f"Failed to add popular leagues to Redis on startup: {str(e)}", exc_info=True)
-        finally:
-            await db.close()
-        break  # Only need one session, so break after first iteration
+        break  # ✅ Exit loop - get_db() handles cleanup automatically
     
     # APScheduler initialization
     scheduler = AsyncIOScheduler(timezone=NAIROBI_TZ)
@@ -71,16 +67,13 @@ async def lifespan(app: FastAPI):
         now = datetime.now(NAIROBI_TZ)
         logger.info(f"Current time: {now.strftime('%H:%M')} is within polling hours, starting immediately")
         
-        # Get database session for polling
+        # ✅ Get database session for polling - Let get_db() manage session
         async for db in get_db():
             try:
                 await polling_manager.start(db)
-                pass
             except Exception as e:
                 logger.error(f"Failed to start polling: {str(e)}", exc_info=True)
-            finally:
-                await db.close()
-            break  # Only need one session
+            break  # ✅ Exit loop - get_db() handles cleanup automatically
     else:
         logger.info("Outside polling hours, waiting for 1pm to 3am polling window")
 

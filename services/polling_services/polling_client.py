@@ -19,7 +19,6 @@ from pytz import timezone
 
 # Define timezone
 NAIROBI_TZ = timezone('Africa/Nairobi')
-from api.utils.dependancies import db_dependancy
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,15 +49,15 @@ class PollingManager():
         """Check if polling task is currently running"""
         return self.current_task and not self.current_task.done()
 
-    async def start(self, db: db_dependancy):
-        """Start the polling manager"""
+    async def start(self, db: AsyncSession):
+        """Start the polling manager - db only used for initial caching"""
         if self.is_running():
             logger.warning("Polling already running, ignoring start request")
             return
 
         logger.info("Starting live data polling manager")
         
-        # Cache matches if not already done
+        # Cache matches if not already done - ONLY use db here
         if not self.matches_cached:
             try:
                 logger.info("Caching today's matches to Redis...")
@@ -72,7 +71,8 @@ class PollingManager():
                     detail=f"Error caching matches: {str(e)}"
                 )
 
-        self.current_task = asyncio.create_task(self._poll_loop(db))
+        # Start the polling loop WITHOUT passing the db session
+        self.current_task = asyncio.create_task(self._poll_loop())
 
     async def stop(self):
         """Stop polling gracefully"""
@@ -162,11 +162,13 @@ class PollingManager():
         logger.info(f"📊 {relevant_matches} matches still being tracked")
         return False
 
-    async def _poll_loop(self, db: AsyncSession):
+    async def _poll_loop(self):
         """
         Optimized polling loop with intelligent sleep/wake cycles.
-        Only actively polls when matches are imminent or live.
+        Creates a fresh DB session for each iteration to avoid stale connections.
         """
+        from db.db_setup import get_db  # Import here to avoid circular imports
+        
         logger.info("=" * 60)
         logger.info("🚀 POLLING LOOP STARTED")
         logger.info("=" * 60)
@@ -223,13 +225,15 @@ class PollingManager():
                     else:
                         consecutive_empty_iterations = 0  # Reset counter
 
-                    # Process matches
-                    try:
-                        await liveDataBackup.handle_matches_iteration(redis_matches, db)
-                        logger.info(f"✓ Iteration #{iteration_count} completed successfully")
-                    except Exception as e:
-                        logger.error(f"❌ Error in iteration #{iteration_count}: {str(e)}", exc_info=True)
-                        # Continue polling despite errors
+                    # ✅ CREATE FRESH DB SESSION FOR THIS ITERATION
+                    async for db in get_db():
+                        try:
+                            await liveDataBackup.handle_matches_iteration(redis_matches, db)
+                            logger.info(f"✓ Iteration #{iteration_count} completed successfully")
+                        except Exception as e:
+                            logger.error(f"❌ Error in iteration #{iteration_count}: {str(e)}", exc_info=True)
+                            # Continue polling despite errors
+                        break  # ✅ Exit get_db() context - session auto-closes
 
                     # Sleep before next iteration
                     logger.info(f"💤 Sleeping 60 seconds before next iteration...")
@@ -272,9 +276,7 @@ def schedule_daily_polling(scheduler: AsyncIOScheduler):
                 break  # Only need one session
             except Exception as e:
                 logger.error(f"Failed to start polling job: {str(e)}", exc_info=True)
-            finally:
-                # await db.close()
-                pass
+            break  # ✅ Exit get_db() context
 
     scheduler.add_job(
         start_polling_job,
