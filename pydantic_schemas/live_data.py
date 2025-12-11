@@ -85,19 +85,19 @@ class RedisStoreLiveMatchVTwo(BaseModel):
 
 # just defined the full modle just incase i add something that might need the other part , but for later on we will optimize more
 class HalfsDetails(BaseModel):
-    firstHalfStarted: str
-    firstHalfEnded: str
-    secondHalfStarted: str
-    secondHalfEnded: str
+    firstHalfStarted: str = ""
+    firstHalfEnded: str = ""
+    secondHalfStarted: str = ""
+    secondHalfEnded: str = ""
     firstExtraHalfStarted: str = ""
     secondExtraHalfStarted: str = ""
-    gameEnded: str
+    gameEnded: str = ""
 
 class ReasonDetails(BaseModel):
-    short: str
-    shortKey: str
-    long: str
-    longKey: str
+    short: str = ""
+    shortKey: str = ""
+    long: str = ""
+    longKey: str = ""
 
 class MatchScoreDetails(BaseModel): # so this is the root of the response
     status: str
@@ -107,18 +107,18 @@ class MatchScoreResponse(BaseModel):
     status: 'MatchStatus'
 
 class MatchStatus(BaseModel):
-    utcTime: str
-    numberOfHomeRedCards: int
-    numberOfAwayRedCards: int
-    halfs: HalfsDetails
-    finished: bool
-    started: bool
-    cancelled: bool
-    awarded: bool
-    scoreStr: str
-    reason: ReasonDetails
+    utcTime: str = ""
+    numberOfHomeRedCards: int = 0
+    numberOfAwayRedCards: int = 0
+    halfs: Optional[HalfsDetails] = None
+    finished: bool = False
+    started: bool = False
+    cancelled: bool = False
+    awarded: bool = False
+    scoreStr: str = ""
+    reason: Optional[ReasonDetails] = None
     whoLostOnPenalties: Optional[str] = None
-    whoLostOnAggregated: str
+    whoLostOnAggregated: str = ""
 
 class ParsedScoreData(BaseModel):
     homeScore: int

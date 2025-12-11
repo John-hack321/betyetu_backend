@@ -103,9 +103,14 @@ async def get_live_match_data_from_redis(match_id: str):
 # for adding live matches to redis
 async def add_live_match_to_redis(redis_live_match: RedisStoreLiveMatch):
     try:
-        r.hset("live_matches",
-        str(redis_live_match.matchId),
-        redis_live_match.json())
+        match_data = redis_live_match.model_dump()
+        match_id = match_data.get('matchId')
+        
+        # Add current timestamp to the match data
+        match_data['timestamp'] = datetime.utcnow().isoformat()
+        
+        # We will use the match id as the key and store the match data as a JSON string
+        r.hset('live_matches', str(match_id), json.dumps(match_data, default=str))
 
         return {
             'status': status.HTTP_200_OK,
@@ -278,18 +283,53 @@ async def update_live_match_home_score(match_id: int, home_score: int):
         detail=f"an error occured while updating the live match {str(e)}")
 
 async def update_live_match_away_score(match_id: int, away_score: int):
-    print(f"updating live match away score of match id : {match_id}")
     try:
-        match_json= r.hget('live_matches', str(match_id))
-
-        if match_json:
-            match_data= json.loads(match_json)
-            match_data['awayTeamScore'] = away_score
-            r.hset('live_matches', str(match_id), json.dumps(match_data))
-
+        # Get the current match data
+        match_data = r.get(f"live_match:{match_id}")
+        if match_data:
+            match_dict = json.loads(match_data)
+            # Update the away score
+            match_dict['away_score'] = away_score
+            # Save back to Redis
+            r.set(f"live_match:{match_id}", json.dumps(match_dict))
+            logger.info(f"Updated away score for match {match_id} to {away_score}")
+            return True
+        return False
     except Exception as e:
-        logger.error(f"an error occured while updating the live match away score: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"an error occured while updating live match away_score, {str(e)}"
-        )
+        logger.error(f"Error updating away score for match {match_id}: {str(e)}")
+        return False
+
+
+async def cleanup_old_matches(hours_old: int = 2):
+    """
+    Remove matches from Redis that are older than the specified hours.
+    
+    Args:
+        hours_old: Number of hours after which a match is considered old
+    """
+    try:
+        # Get all match keys
+        match_keys = r.keys("live_match:*")
+        cutoff_time = datetime.utcnow() - timedelta(hours=hours_old)
+        removed_count = 0
+        
+        for key in match_keys:
+            try:
+                match_data = r.get(key)
+                if match_data:
+                    match_dict = json.loads(match_data)
+                    # Check if match has a timestamp and is older than cutoff
+                    if 'timestamp' in match_dict:
+                        match_time = datetime.fromisoformat(match_dict['timestamp'])
+                        if match_time < cutoff_time:
+                            r.delete(key)
+                            removed_count += 1
+            except Exception as e:
+                logger.error(f"Error processing match key {key}: {str(e)}")
+                continue
+                
+        logger.info(f"Cleaned up {removed_count} old matches from Redis")
+        return removed_count
+    except Exception as e:
+        logger.error(f"Error in cleanup_old_matches: {str(e)}")
+        return 0

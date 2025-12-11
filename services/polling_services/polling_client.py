@@ -168,10 +168,14 @@ class PollingManager():
         Creates a fresh DB session for each iteration to avoid stale connections.
         """
         from db.db_setup import get_db  # Import here to avoid circular imports
+        from services.caching_services.redis_client import cleanup_old_matches
         
         logger.info("=" * 60)
         logger.info("🚀 POLLING LOOP STARTED")
         logger.info("=" * 60)
+        
+        # Clean up old matches at the start
+        await cleanup_old_matches(hours_old=2)
 
         try:
             # Initial check: should we sleep until first match?
