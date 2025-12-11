@@ -205,7 +205,7 @@ class LiveDataServiceBackup():
                                 # since match is ended we also have to do the payouts
                                 await update_stake_with_winner_data_and_do_payouts(
                                     db, 
-                                    item.matchId, 
+                                    int(item.matchId), 
                                     db_match_object.winner)
         
                         # for matches that have come back as not to have ended ie: live matches
@@ -275,7 +275,7 @@ class LiveDataServiceBackup():
                                 await remove_match_from_redis_redis_store(item.matchId)
                                 await update_stake_with_winner_data_and_do_payouts(
                                     db, 
-                                    item.matchId, 
+                                    int(item.matchId), 
                                     db_match_object.winner)
 
 

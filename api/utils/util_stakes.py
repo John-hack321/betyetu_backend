@@ -230,7 +230,7 @@ async def update_stake_with_winner_data_and_do_payouts(db: AsyncSession, match_i
             .where(Account.user_id.in_(
                 select(Stake.user_id)
                 .where(
-                    Stake.match_id== match_id,
+                    Stake.match_id== int(match_id),
                     Stake.placement== winner_team,
                     Stake.stake_status== StakeStatus.successfull)
             ))
