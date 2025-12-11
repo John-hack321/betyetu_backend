@@ -265,9 +265,13 @@ async def convert_fixtures_result_object_from_to_db_desired_return_object(rows):
             parsed_fixture_object['home_team']= fixture_dict.get('home_team')
             parsed_fixture_object['away_team_id']= fixture_dict.get('away_team_id')
             parsed_fixture_object['away_team']= fixture_dict.get('away_team')
-            parsed_fixture_object['fixture_status']= fixture_dict.get('fixture_status')
+            parsed_fixture_object['score_string']= fixture_dict.get('outcome')
+            # we only send the fixture status only when the match is live : 
+            if fixture_dict.get('fixture_status') == FixtureStatus.live:
+                parsed_fixture_object['is_match_live']= True
 
             fixtures_with_league_data.append(parsed_fixture_object)
+            
         return fixtures_with_league_data
 
     except Exception as e:

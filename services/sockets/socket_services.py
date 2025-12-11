@@ -35,6 +35,7 @@ sio_app = socketio.ASGIApp(
 # since we will only have this one room we make it hard typed and alway accessible to anyone
 LIVE_MATCHES_ROOM_ID= "live_matches_room"
 
+# AVOID THESE ONES THEY ARE FOR THE PREVIOUS LIVE DATA FUNCTIONALITY
 async def update_match_to_live_on_frontend_with_live_data_too(match_id: int):
     try:
         live_match= await get_live_match_data_from_redis(match_id)
@@ -42,8 +43,8 @@ async def update_match_to_live_on_frontend_with_live_data_too(match_id: int):
         logger.info(f"broadcasting live match {live_match} to users now")
 
         await sio_server.emit('upate_match_to_live_on_frontend_with_live_data_too',
-         {'live_match_data': live_match},
-         room= LIVE_MATCHES_ROOM_ID)
+        {'live_match_data': live_match},
+        room= LIVE_MATCHES_ROOM_ID)
 
     except Exception as e:
         logger.error(f"an error occured while updating match to live on frontend: {str(e)}",
@@ -69,8 +70,8 @@ async def send_live_data_to_users(updated_match_ids_list: list[int]):
             live_match_updates.append(live_match)
 
         await sio_server.emit('send_live_data_to_users',
-         {"liveMatchData": live_match_updates},
-         room= LIVE_MATCHES_ROOM_ID)
+        {"liveMatchData": live_match_updates},
+        room= LIVE_MATCHES_ROOM_ID)
 
     except HTTPException:
         raise # we raise these again
@@ -87,6 +88,11 @@ async def send_live_data_to_users(updated_match_ids_list: list[int]):
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while sending live match data to users"
         )
+
+# THEY END HERE 
+
+
+# NEWER FUNCTIONALITY FOR THE NEW LIVE DATA BACKUP STYLE
     
 @sio_server.event
 async def connect(sid , environ , user_data ,auth = None):
@@ -108,10 +114,10 @@ async def connect(sid , environ , user_data ,auth = None):
 
     except Exception as e:
         logger.error(f"an error occured while trying to connect to socketio, {str(e)}",
-         exc_info=True,
-         extra={
+        exc_info=True,
+        extra={
             "affected sid": sid
-         })
+        })
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
