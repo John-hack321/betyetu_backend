@@ -2,6 +2,7 @@ from fastapi import status, HTTPException, APIRouter
 
 import logging
 import sys
+import json
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.util import expand_column_list_from_order_by
@@ -32,6 +33,7 @@ router= APIRouter(
 
 @router.get('/get_stake_data')
 async def get_stake_data_by_invite_code(db: db_dependancy, user: user_depencancy, invite_code: str):
+    print(f' the get stakes data by invite code has been reached by user of details : ', user)
     try :
         db_object= await get_stake_by_invite_code_from_db(db, invite_code)
         if not db_object:
@@ -46,6 +48,8 @@ async def get_stake_data_by_invite_code(db: db_dependancy, user: user_depencancy
             stakeOwner= StakeOwner(stakeAmount= db_object.amount, stakePlacement=db_object.placement),
             stakeGeust= StakeGeust(stakeAmount=db_object.invited_user_amount, stakePlacement=db_object.invited_user_placement),
         )
+
+        print(f"stake data gottne fromt he endpoint is :", stake_data)
 
         return stake_data
         
@@ -111,6 +115,9 @@ async def cancel_stake_placement_stake_owner_scenario(db: db_dependancy, user: u
 @router.post('/join_initiated_stake')
 async def join_initiated_stake(db : db_dependancy, user: user_depencancy, guest_stake_data: GuestStakeJoiningPayload):
     try:
+        print(f"user of username : {user.get('username')} has just accessed the join initiated stake endpint")
+        print(f"the data he has acessed the endpint with is :", json.dumps(guest_stake_data, indent=4, default=str))
+
         staking_service= StakingService(user.get('user_id'))
         join_stake_response= await staking_service.join_initiated_stake(db, guest_stake_data)
         
