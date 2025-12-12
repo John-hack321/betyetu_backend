@@ -10,10 +10,12 @@ from typing import Dict, Any
 import logging
 import sys
 
-from api.utils.dependancies import db_dependancy
+from api.utils.dependancies import db_dependancy, user_depencancy
 from db.db_setup import get_db
-from api.admin_routes.util_matches import delete_match_from_db, delete_matches_by_league_id
+from api.admin_routes.util_matches import admin_log_live_match_scores, admin_make_match_live, delete_match_from_db, delete_matches_by_league_id
 from api.admin_routes.util_leagues import delete_league_from_popular_leagues_table, update_league_added_status_to_true_or_false
+from services.caching_services.redis_client import update_live_match_away_score, update_live_match_home_score
+from services.sockets.socket_services import update_live_match_scores_on_frontend, update_match_to_live_and_update_live_data_on_frontend, update_match_to_live_on_frontend_with_live_data_too
 
 router = APIRouter(
     prefix="/admin/fixtures",
@@ -187,4 +189,69 @@ async def delete_league_matches(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while deleting matches for league ID {league_id}"
+        )
+
+
+# since we can not always afford to pay for apis or just for the part where we are starting before we afford actual api we might need to have dp manual logging of matches that are currently bing played
+
+@router.post('/make_match_live_and_start_logging')
+async def make_match_live_and_start_logging_match_with_live_data(db: db_dependancy, match_id: int):
+    try :
+        db_match_object= await admin_make_match_live(db, match_id)
+        if not db_match_object:
+            logger.error(f"an error occured while admin trying to make match live")
+
+
+        await update_match_to_live_and_update_live_data_on_frontend(match_id, score_string)
+
+        # find the best way to tell the frontned of success , maybe use the response model at the top of the query thingy
+        return {
+            'status_code': status.HTTP_200_OK,
+            'message': 'message has been successfulu madelive'
+        }
+
+    except HTTPException:
+        raise 
+
+    except Exception as e:
+        
+        logger.error(f"an error occured while trying to make match live and start logging : {str(e)}",
+        exc_info=True, 
+        extra={
+            'affected_match': match_id
+        })
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail= f"an error occured whle trying to make mathc {match_id} live an logging live data for it , {str(e)}"
+        )
+
+@router.post('/log_live_match_scores')
+async def log_live_match_scores(db: db_dependancy, match_id: int, score_string : str):
+    try: 
+        home_score, away_score= map(int, score_string.split(' - '))
+        db_match_object= await admin_log_live_match_scores(db, match_id, home_score, away_score)
+
+        if not db_match_object:
+            logger.error(f"an error occured while trying to log match with live data")
+        
+        # NOTE: after logging the data in the db we need to send updates to the users to via socketio
+
+        logger.info(f"now sending live match updates to the frontend via socketio")
+        await update_live_match_scores_on_frontend(match_id, score_string)
+
+    except HTTPException:
+        raise 
+
+    except Exception as e:
+        
+        logger.error(f"an error occured while trying to log live match scores : {str(e)}",
+        exc_info=True, 
+        extra={
+            'affected_match': match_id
+        })
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail= f"an error occured whle trying to log live match scores for match of id {match_id},  {str(e)}"
         )

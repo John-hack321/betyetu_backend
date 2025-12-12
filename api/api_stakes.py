@@ -88,6 +88,8 @@ async def cancel_stake_placement_stake_owner_scenario(db: db_dependancy, user: u
     """
     this will be used for deleting / cancelling stake placement based on the invite code
     """
+    
+    logger.info(f'the stake cancelation route has been accessed with data : {invite_code}')
 
     try:
         staking_service= StakingService(user.get("user_id"))

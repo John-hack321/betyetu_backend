@@ -497,3 +497,68 @@ async def determine_match_winner(home_score: int, away_score: int) -> str:
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail= f"an error occured while trying to update the match winner, {str(e)}"
         )
+
+
+async def admin_make_match_live(db: AsyncSession, match_id: int):
+    try:
+
+        query= select(Fixture).where(Fixture.match_id== match_id)
+        result= await db.execute(query)
+        db_match_object= result.scalars().first()
+
+        db_match_object.fixture_status= FixtureStatus.live
+
+        await db.commit()
+        await db.refresh(db_match_object)
+        return db_match_object
+
+    except HTTPException:
+        raise 
+
+    except Exception as e:
+        
+        await db.rollback()
+
+        logger.error(f"an error occured while admin is trying to make match live in db, {str(e)}",
+        exc_info=True,
+        extra={
+            'affected_match': match_id
+        })
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while trying to make match a live match: {str(e)}"
+        )
+
+
+async def admin_log_live_match_scores(db: AsyncSession,  match_id: int, score_string: str, home_score: int, away_score: int):
+    try:
+        query= select(Fixture).where(Fixture.match_id== match_id)
+        result= await db.execute(query)
+        db_match_object= result.scalars().first()
+
+        db_match_object.home_score= home_score
+        db_match_object.away_score= away_score
+        db_match_object.outcome= score_string
+
+        await db.commit()
+        await db.refresh(db_match_object)
+        return db_match_object
+
+    except HTTPException:
+        raise 
+
+    except Exception as e:
+        
+        await db.rollback()
+
+        logger.error(f"an error occured while admin trying to log live matche scores it the db, {str(e)}",
+        exc_info=True,
+        extra={
+            'affected_match': match_id
+        })
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while adming trying to log live match scores in the db: {str(e)}"
+        )

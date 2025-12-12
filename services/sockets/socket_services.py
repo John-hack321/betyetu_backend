@@ -29,11 +29,9 @@ sio_app = socketio.ASGIApp(
     socketio_path = 'sockets'
 )
 
-# I belive this function should be called at startup to make the room id generated once
-# and maybe i should store room id in the database
-
 # since we will only have this one room we make it hard typed and alway accessible to anyone
 LIVE_MATCHES_ROOM_ID= "live_matches_room"
+
 
 # AVOID THESE ONES THEY ARE FOR THE PREVIOUS LIVE DATA FUNCTIONALITY
 async def update_match_to_live_on_frontend_with_live_data_too(match_id: int):
@@ -90,6 +88,10 @@ async def send_live_data_to_users(updated_match_ids_list: list[int]):
         )
 
 # THEY END HERE 
+
+
+
+
 
 
 # NEWER FUNCTIONALITY FOR THE NEW LIVE DATA BACKUP STYLE
@@ -165,4 +167,63 @@ async def leave_live_data_room(sid):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while trying to leave live data room"
+        )
+
+
+
+
+# newer functions for handling live data
+
+async def update_match_to_live_and_update_live_data_on_frontend(match_id: int, score_string: str):
+    logger.info(f"the updae match to live on frotend function has been reached")
+    try :
+        home_score, away_score= map(int, score_string.split("-"))
+        match_data= {
+            'match_id': match_id,
+            'home_score': home_score,
+            'away_score': away_score,
+            'score_string': score_string,      
+        }
+
+        await sio_server.emit('upate_match_to_live_on_frontend_with_live_data_too',
+        match_data,
+        room= LIVE_MATCHES_ROOM_ID
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+
+        logger.error(f"an error occured while updating match to live on the frontend: {str(e)}",
+        exc_info=True)
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while trying to update match to live on the fronend, {str(e)}"
+        )
+
+async def update_live_match_scores_on_frontend(match_id: int, score_string):
+    logger.info('the update live match socres on frontend function has been reached')
+    try:
+        home_score, away_score= map(int, score_string.split("-"))
+        match_data= {
+            'match_id': match_id,
+            'home_score': home_score,
+            'away_score': away_score,
+            'score_string': score_string,      
+        }
+
+        await sio_server.emit('update_live_match_scores_on_frontend',
+        match_data,
+        room= LIVE_MATCHES_ROOM_ID
+        )
+
+    except Exception as e:
+        logger.error(f"an error occured while trying to update live match scores on the frontend",
+        exc_info=True)
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while tyring to update live match scores on the frontend, {str(e)}"
         )
