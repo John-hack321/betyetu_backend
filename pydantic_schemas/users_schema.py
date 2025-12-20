@@ -26,6 +26,11 @@ class Token(BaseModel):
     refresh_token : str
     token_type : str
 
+class AdminToken(BaseModel):
+    admin_access_token: str
+    admin_refresh_token: str
+    token_type: str
+
 # actually according to what im seeing right now , we can also respond to api calls using other pydantic models for those specific response like this one here for sendiing user data 
 class UserProfileResponse(BaseModel):
     username: str

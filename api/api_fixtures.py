@@ -7,7 +7,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from api.utils.dependancies import db_dependancy, user_depencancy
+from api.utils.dependancies import db_dependancy, user_dependancy
 from api.admin_routes.util_matches import get_all_fixtures_from_db
 from api.admin_routes.util_matches import get_fixtures_by_leageu_id_from_db
 
@@ -19,7 +19,7 @@ router = APIRouter(
 )
 
 @router.get('/')
-async def get_all_fixtures(db : db_dependancy , user : user_depencancy , limit : int=100, page : int=1):
+async def get_all_fixtures(db : db_dependancy , user : user_dependancy , limit : int=100, page : int=1):
     try:
         fixtures_data = await get_all_fixtures_from_db(db , limit , page)
         return fixtures_data
@@ -29,7 +29,7 @@ async def get_all_fixtures(db : db_dependancy , user : user_depencancy , limit :
         detail=f"an unexpected error occured on the get_all_fixtures_endpoing")
 
 @router.get('/popular_leagues_fixtures')
-async def get_popular_leagues_fixtures(db : db_dependancy , user : user_depencancy):
+async def get_popular_leagues_fixtures(db : db_dependancy , user : user_dependancy):
     try:
         db_popular_leagues_fixtures_object = await get_fixtures_by_popular_league(db)
         if not db_popular_leagues_fixtures_object:
@@ -41,7 +41,7 @@ async def get_popular_leagues_fixtures(db : db_dependancy , user : user_depencan
         detail=f"an unexpected error occured on the get_popular_leagues_endpoint {str(e)}", exc_info=True)
 
 @router.get('/fixtures_by_leagues')
-async def get_fixtures_by_popular_league(db : db_dependancy , user : user_depencancy , league_id ):
+async def get_fixtures_by_popular_league(db : db_dependancy , user : user_dependancy , league_id ):
     try :
         db_fixture_by_popular_leagues_object = await get_fixtures_by_leageu_id_from_db(db)
         if not db_fixture_by_popular_leagues_object:

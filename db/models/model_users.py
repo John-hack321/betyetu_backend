@@ -7,7 +7,12 @@ from db.models.mixins import TimeStamp
 from pydantic_schemas.transaction_schemas import trans_type , trans_status
 from db.models.model_stakes import Stake
 
-# user based models go here 
+class Admin(TimeStamp, Base):
+    __tablename__= "admin"
+
+    admin_id= Column(Integer, index=True, primary_key= True)
+    admin_name= Column(String(50), nullable=False, unique=True)
+    hashed_password= Column(String)
 
 class User( TimeStamp , Base): # this base here is the declarative instance object from the db_setup file 
     __tablename__ = "users"

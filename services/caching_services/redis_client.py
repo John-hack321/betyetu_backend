@@ -31,7 +31,7 @@ logger= logging.getLogger(__name__)
 # redis is runnig localy on my system , on production we might want to think of using the redis caching service
 r= redis.Redis(
     host='localhost',
-    port =6379,
+    port =6380,
     password='1423Okello,',
     decode_responses=True, # this is a must to avoid getting coroutine objects as responses
     db=1
@@ -39,7 +39,7 @@ r= redis.Redis(
 
 r2= redis.Redis(
     host='localhost',
-    port =6379,
+    port =6380,
     password='1423Okello,',
     decode_responses=True,
     db=2

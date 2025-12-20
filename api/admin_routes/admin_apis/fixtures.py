@@ -10,7 +10,7 @@ from typing import Dict, Any
 import logging
 import sys
 
-from api.utils.dependancies import db_dependancy, user_depencancy
+from api.utils.dependancies import db_dependancy, user_dependancy
 from db.db_setup import get_db
 from api.admin_routes.util_matches import admin_log_live_match_scores, admin_make_match_live, delete_match_from_db, delete_matches_by_league_id
 from api.admin_routes.util_leagues import delete_league_from_popular_leagues_table, update_league_added_status_to_true_or_false

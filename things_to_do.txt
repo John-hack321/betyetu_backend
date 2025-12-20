@@ -27,6 +27,8 @@ where I left from / stopping point :
     and processing part that im headed to
 
 
+new_system_important_things_to_be_done: 
+    ensure that the token urls I passesd for the admin routes are all correct
 
 
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, status, HTTPException
 
 import logging
 
-from api.utils.dependancies import db_dependancy, user_depencancy
+from api.utils.dependancies import db_dependancy, user_dependancy
 from api.admin_routes.util_leagues import get_leagues_list_from_db, get_popular_leagues_from_db
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 @router.get('/') # endpoint for getting all leagues list
-async def user_get_leagues_list(db : db_dependancy , user : user_depencancy):
+async def user_get_leagues_list(db : db_dependancy , user : user_dependancy):
     try :
         db_user_leagues_list = await get_leagues_list_from_db()
         if not db_user_leagues_list:
@@ -27,7 +27,7 @@ async def user_get_leagues_list(db : db_dependancy , user : user_depencancy):
         detail=f"An error occured in user_get_leagues_list endpoint {str(e)}")
 
 @router.get('/available') #by avaailabe we are only  by default referencing the popular leagues 
-async def user_get_popular_leagues(db : db_dependancy , user : user_depencancy):
+async def user_get_popular_leagues(db : db_dependancy , user : user_dependancy):
     try :
         db_popular_leagues = await get_popular_leagues_from_db(db)
         if not db_popular_leagues:

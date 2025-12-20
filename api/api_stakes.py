@@ -7,7 +7,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.util import expand_column_list_from_order_by
 
-from api.utils.dependancies import db_dependancy, user_depencancy
+from api.utils.dependancies import db_dependancy, user_dependancy
 from api.utils.util_stakes import get_stake_by_invite_code_from_db
 from pydantic_schemas.stake_schemas import GuestStakeJoiningPayload, OwnerStakeInitiationPayload, StakeBaseModel, StakeGeust, StakeInitiationPayload, StakeObject, StakeStatus, StakeWinner, StakesReturnObject, StakeDataObject, StakeOwner
 from services.staking_service import staking_service
@@ -32,7 +32,7 @@ router= APIRouter(
 )
 
 @router.get('/get_stake_data')
-async def get_stake_data_by_invite_code(db: db_dependancy, user: user_depencancy, invite_code: str):
+async def get_stake_data_by_invite_code(db: db_dependancy, user: user_dependancy, invite_code: str):
     print(f' the get stakes data by invite code has been reached by user of details : ', user)
     try :
         db_object= await get_stake_by_invite_code_from_db(db, invite_code)
@@ -59,7 +59,7 @@ async def get_stake_data_by_invite_code(db: db_dependancy, user: user_depencancy
         detail=f"an error occured: __get_stake_data_by_invite_code, api_stakes detail: {str(e)}")
 
 @router.post('/initiate_stake')
-async def initiate_stake(db : db_dependancy, user: user_depencancy, stake_initiation_payload: OwnerStakeInitiationPayload):
+async def initiate_stake(db : db_dependancy, user: user_dependancy, stake_initiation_payload: OwnerStakeInitiationPayload):
     try:
         staking_service= StakingService(user.get('user_id'))
         print(f"the stake initiation payload has been reached by the user {user.get("user_id")}")
@@ -84,7 +84,7 @@ async def initiate_stake(db : db_dependancy, user: user_depencancy, stake_initia
             detail=f"an error occured: __initiate_stake, {str(e)}")
 
 @router.post('/cancel_stake')
-async def cancel_stake_placement_stake_owner_scenario(db: db_dependancy, user: user_depencancy, invite_code: str):
+async def cancel_stake_placement_stake_owner_scenario(db: db_dependancy, user: user_dependancy, invite_code: str):
     """
     this will be used for deleting / cancelling stake placement based on the invite code
     """
@@ -115,7 +115,7 @@ async def cancel_stake_placement_stake_owner_scenario(db: db_dependancy, user: u
         )
 
 @router.post('/join_initiated_stake')
-async def join_initiated_stake(db : db_dependancy, user: user_depencancy, guest_stake_data: GuestStakeJoiningPayload):
+async def join_initiated_stake(db : db_dependancy, user: user_dependancy, guest_stake_data: GuestStakeJoiningPayload):
     try:
         print(f"user of username : {user.get('username')} has just accessed the join initiated stake endpint")
         print(f"the data he has acessed the endpint with is :", json.dumps(guest_stake_data, indent=4, default=str))
@@ -132,7 +132,7 @@ async def join_initiated_stake(db : db_dependancy, user: user_depencancy, guest_
 
 
 @router.get('/get_user_stakes')
-async def get_user_stakes(db: db_dependancy, user: user_depencancy):
+async def get_user_stakes(db: db_dependancy, user: user_dependancy):
     try:
         db_owner_stakes= await get_user_stakes_where_user_is_owner_from_db(db, user.get('user_id'))
         if db_owner_stakes == None:

@@ -1,6 +1,6 @@
 import fastapi
 from fastapi import APIRouter, HTTPException , status 
-from api.utils.dependancies import db_dependancy , user_depencancy
+from api.utils.dependancies import db_dependancy , user_dependancy
 from api.utils.util_users import get_user_and_account_data
 from pydantic_schemas.users_schema import UserProfileResponse
 
@@ -14,7 +14,7 @@ router = APIRouter(
 )
 
 @router.get("/me" , status_code=status.HTTP_200_OK , response_model=UserProfileResponse) # here we are goint to write an endpoint for getting user data
-async def get_profile_data( db : db_dependancy ,  user : user_depencancy ) :
+async def get_profile_data( db : db_dependancy ,  user : user_dependancy ) :
     """
        gets user id of the current user 
        it then retireves the users account and profile info from the database

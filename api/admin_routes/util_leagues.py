@@ -3,7 +3,7 @@ from fastapi import HTTPException , status
 
 from db.models.model_leagues import League , PopularLeague
 from pydantic_schemas.league_schemas import LeagueBaseModel
-from api.utils.dependancies import user_depencancy , db_dependancy
+from api.utils.dependancies import user_dependancy , db_dependancy
 from db.db_setup import Base
 
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -232,7 +232,8 @@ class PollingManager():
                     # ✅ CREATE FRESH DB SESSION FOR THIS ITERATION
                     async for db in get_db():
                         try:
-                            await liveDataBackup.handle_matches_iteration(redis_matches, db)
+                            # for now lets jsut comment them away we will work on them once the redis store is setup
+                            # await liveDataBackup.handle_matches_iteration(redis_matches, db)
                             logger.info(f"✓ Iteration #{iteration_count} completed successfully")
                         except Exception as e:
                             logger.error(f"❌ Error in iteration #{iteration_count}: {str(e)}", exc_info=True)
@@ -240,8 +241,8 @@ class PollingManager():
                         break  # ✅ Exit get_db() context - session auto-closes
 
                     # Sleep before next iteration
-                    logger.info(f"💤 Sleeping 60 seconds before next iteration...")
-                    await asyncio.sleep(60)
+                    logger.info(f"💤 Sleeping 1800000000 seconds before next iteration...")
+                    await asyncio.sleep(1800000000000)
 
                 except asyncio.CancelledError:
                     logger.info("🛑 Polling loop cancelled")

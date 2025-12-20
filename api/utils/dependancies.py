@@ -14,6 +14,12 @@ load_dotenv()
 SECRET_KEY = os.getenv('AUTH_SECRET_KEY')
 ALGORITHM = os.getenv("ALGORITHM")  
 REFRESH_ALGORITHM = os.getenv("REFRESH_ALGORITHM")
+
+ADMIN_AUTH_SECRET_KEY= os.getenv('ADMIN_AUTH_SECRET_KEY')
+ADMIN_AUTH_ALGORITHM= os.getenv('ADMIN_AUTH_ALGORITHM')
+ADMIN_REFRESH_ALGORITHM= os.getenv('ADMIN_REFRESH_ALGORITHM')
+
+
 ##   db_dependancy = Annotated[Session, Depends(get_db)] #This creates a reusable shortcut for injecting a database session (Session) from your custom get_db() function.
 
 # here I am going to implement a few things whose function I still dont know but lets just go with it 
@@ -27,6 +33,11 @@ oauth2_bearer_dependancy = Annotated[str , Depends(oauth2_bearer)]
 # for example for the auth_bearer dependancy , so this is what it does so for the auth 2 bearer function what it does is it goes to the url and extracts the token 
 # but now for the auth2_bearer_dependacy when used in a function what it says is first run this function ( the one enclosed in the Depends thing ) , then use the result 
 
+
+# admin functions
+admin_oauth2_bearer= OAuth2PasswordBearer(tokenUrl= "/admin/auth/token")
+admin_oauth2_bearer_dependancy= Annotated[str, Depends(admin_oauth2_bearer)]
+# NOTE : later on we will decide if we will use a different algorithm functionality for the admin auth functionality
 
 # we are now going to implement the famous get_current_usr utility function 
 
@@ -42,7 +53,7 @@ async def get_current_user( token : oauth2_bearer_dependancy):
     except :
         raise HTTPException( status_code = status.HTTP_401_UNAUTHORIZED  , detail = "could not validate user")
 
-user_depencancy = Annotated[dict , Depends(get_current_user)] # and now our auth user validation dependacy is complete
+user_dependancy = Annotated[dict , Depends(get_current_user)] # and now our auth user validation dependacy is complete
 
 # well this new dependancy function is going to look somewhat similar to the get_current_user function but we will use it for 
 # decoding the access token and extractin the refresh token from it 
@@ -62,3 +73,39 @@ async def get_current_refresh_request_owner(token : refresh_bearer_dependancy):
         raise HTTPException( status_code = status.HTTP_401_UNAUTHORIZED , detail = "could not validate the user")
 
 refresh_user_dependancy = Annotated[dict , Depends(get_current_refresh_request_owner)]
+
+
+# admin auth logic here
+
+
+async def get_current_admin( token : admin_oauth2_bearer_dependancy):
+    try :
+        payload = jwt.decode(token , ADMIN_AUTH_SECRET_KEY , algorithms = ADMIN_AUTH_ALGORITHM)
+        admin_name = payload.get('sub')
+        admin_id = payload.get('id')
+        if admin_name is None or admin_id is None:
+            print("missing username or userid")
+            raise HTTPException( status_code = status.HTTP_401_UNAUTHORIZED , detail = " could not validate user")
+        return { 'admin_name' : admin_name , 'admin_id' : admin_id}
+    except :
+        raise HTTPException( status_code = status.HTTP_401_UNAUTHORIZED  , detail = "could not validate user")
+
+admin_dependancy = Annotated[dict , Depends(get_current_user)]
+
+
+admin_refresh_bearer = OAuth2PasswordBearer(tokenUrl = "/admin/auth/refresh")
+admin_refresh_bearer_dependancy = Annotated[str , Depends(admin_refresh_bearer)]
+
+async def get_current_admin_refresh_request_owner(token : admin_refresh_bearer_dependancy):
+    try:
+        payload = jwt.decode(token , ADMIN_AUTH_SECRET_KEY , algorithms=ADMIN_AUTH_ALGORITHM)
+        username = payload.get('sub')
+        user_id = payload.get('id')
+        if username is None or user_id is None:
+            raise HTTPException( status_code = status.HTTP_401_UNAUTHORIZED , detail = "could not validate the user")
+        return {'username'  : username , 'id' : user_id }
+    except:
+        raise HTTPException( status_code = status.HTTP_401_UNAUTHORIZED , detail = "could not validate the user")
+
+refresh_user_dependancy = Annotated[dict , Depends(get_current_refresh_request_owner)]
+

@@ -2,8 +2,9 @@ from aiohttp import http_exceptions
 from fastapi import APIRouter, HTTPException  , status , Request
 import os
 
+from api.utils.dependancies import user_dependancy
 from api.utils import transaction_dependancies
-from api.utils.dependancies import db_dependancy , user_depencancy
+from api.utils.dependancies import db_dependancy
 from api.utils.util_transactions import create_transaction, create_withdrawal_transaction, get_transaction_and_account_data , update_transaction , update_b2c_transaction
 from api.utils.util_users import get_user_and_account_data
 from db.models.model_users import Transaction
@@ -28,7 +29,7 @@ MPESA_PASS_KEY = os.getenv('MPESA_PASS_KEY')
 MPESA_STK_URL = os.getenv('MPESA_STK_URL')
 
 @router.post("/deposit" , status_code = 200)
-async def deposit_money(db : db_dependancy , user : user_depencancy , user_transaction_request_data : CreateTransaction):
+async def deposit_money(db : db_dependancy , user : user_dependancy , user_transaction_request_data : CreateTransaction):
     user_id = user['user_id']
     user_and_account_data = await get_user_and_account_data(db , user_id)
     # we first have to do the stk push to the user to initiate the transaction so that we record what we are sure of inot the database
@@ -133,7 +134,7 @@ async def deposit_call_back_response(db: db_dependancy, request: Request):
 
 # now we will build this another endpoint for checking if transactio went to completion in order to updatet the frontend
 @router.get('/check_deposit_status')
-async def check_deposit_status(db : db_dependancy , user : user_depencancy , checkout_id : str):
+async def check_deposit_status(db : db_dependancy , user : user_dependancy , checkout_id : str):
   transaction_and_account_data = await get_transaction_and_account_data(db , checkout_id)
   if transaction_and_account_data.transaction.status == trans_status.successfull:
     return {
@@ -145,7 +146,7 @@ async def check_deposit_status(db : db_dependancy , user : user_depencancy , che
 # endpoints for withdrawal will now go down here : 
 
 @router.post('/withdrawal')
-async def withdrawal_request(db: db_dependancy, user: user_depencancy, user_transaction_request_data: CreateTransaction):
+async def withdrawal_request(db: db_dependancy, user: user_dependancy, user_transaction_request_data: CreateTransaction):
     """Initiate withdrawal request"""
     try:
         user_id = user.get('user_id')
