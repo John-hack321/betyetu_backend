@@ -61,7 +61,8 @@ async def lifespan(app: FastAPI):
         # ✅ Get database session for polling - Let get_db() manage session
         async for db in get_db():
             try:
-                await polling_manager.start(db)
+               #  await polling_manager.start(db)
+               pass
             except Exception as e:
                 logger.error(f"Failed to start polling: {str(e)}", exc_info=True)
             break  # ✅ Exit loop - get_db() handles cleanup automatically
