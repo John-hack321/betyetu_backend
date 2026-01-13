@@ -350,7 +350,6 @@ async def get_todays_matches(db: AsyncSession):
         now = datetime.now(NAIROBI_TZ)
         
         # TODO : find a way to handle cases where the server is restarted at around past midnight
-        
         # Set start time to 1 PM today (or current time if after 1 PM)
         start_time = now.replace(hour=13, minute=0, second=0, microsecond=0) # this one sets the time to 1 pm that day.
         

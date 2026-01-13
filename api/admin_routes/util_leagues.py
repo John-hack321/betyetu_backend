@@ -164,4 +164,3 @@ async def get_popular_leageus_ids_from_db(db: AsyncSession):
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an errro occured while getting popular leagues ids form the database"
         )
-
