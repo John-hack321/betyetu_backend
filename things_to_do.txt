@@ -1,46 +1,19 @@
 short but lazy things that i need to do before i forget:
-    find a way to make sure that the possible win calculation always returns whole numbers only and not decimals in their returns
-    create an ended fixture pydantic modelf for handling the ended match logic
-    confirm if i need to make the match service instace global like the polling service so that i dont have to call it each time in a different place
-    confirm if i have done the db_dependancy thing well
 
 big things that need to be done 
-    find a way to define pydantic schemas for big data sets that appear complex
-    make it so that both users have to place the same stake amount for it all to work
-    need to understane the inner working of alembic so that i avoid falling into alembic pitfalls and all
-    optimize the stakes endpoint to make it more time effeicient and less resource intensive
+   
 
 code red things that need critical fixing or doing:
-    find a way to implement atomicity on alot of processes
-    solve the stake data processing service issue  of returning all matches as lost even the ones that haven't been played yet
-    find a way to send the ended match data to the frontend well with respect to redis
-    find a way to remove the ended matches from redis
-
+    create a new database for this branch too ( call it the new_backend_match_logic_branch_desing )
 
 big things but for later on
-    make the fixtures and league data to include even the season data (eg. 2024/2025 season shit)
-    since im still in the dev phase, write a function/ endpoint that does outcome cleanup by checking for all of the matches that hve been played yet they havent been flagged as expired and make the expire once and for all 
-
+  
 
 where I left from / stopping point : 
-    I was build the logic for handling the ended matches and I have just completed writing the api call part now it about the data handling 
-    and processing part that im headed to
-
+ 
 
 new_system_important_things_to_be_done: 
     ensure that the token urls I passesd for the admin routes are all correct
 
 
 
-
-
-// this completed things list will be put here as a way of showing myslef that im making progress
-completed stuff : 
-
-1. on the fetch_user_profile_data , make it match the frontend by not sending the email as part of the response
-2. find a way for returning the time the db_object was created at well ( either craate a new column for data of creation of rind a way to use the already created_at column already present)
-3. find a way to sort the stakes data before sending back to the frontend
-4. fix the database alembic versioning issues with regards to Stake model and other modles soon to come (veryy urgent)
-3. start using redis on the match processing function in live data services
-4. learn and find out if im doing error handling the right way
-5. find a way to prevent the stake owner from being the stake guest
