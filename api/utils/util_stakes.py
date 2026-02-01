@@ -41,6 +41,7 @@ async def create_stake_object(db: AsyncSession, stake_data: OwnerStakeInitiation
             amount= stake_data.stakeAmount,
             invite_code= invite_code,
             stake_status= StakeStatus.pending,
+            public= stake_data.public,
         )
         db.add(db_object)
         await db.commit()

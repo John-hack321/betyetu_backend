@@ -34,6 +34,12 @@ class StakingService:
 
     # stake owner initiatin function
     async def owner_initiate_stake(self, db: AsyncSession, owner_stake_payload: OwnerStakeInitiationPayload)-> inviteCodeModel:
+        """
+        this is the main function of the staking service that takes part in the initiation of the actual stake
+
+        confirm account balance
+        generate invite code
+        """
         account_balance_confirmed= await self.__confirm_account_balance(self.user_id, owner_stake_payload.stakeAmount, db)
 
         print(f"the accoutn balance has been confirmed and the boolean is {account_balance_confirmed}")

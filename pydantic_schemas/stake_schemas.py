@@ -35,6 +35,7 @@ class StakeBaseModel(BaseModel):
     stake_status: StakeStatus
     winner: Optional[StakeWinner]= None
     possibleWin: Optional[int]= None
+    public: bool= False
 
 class StakeInitiationPayload(BaseModel):
     match_id: int
@@ -50,6 +51,7 @@ class OwnerStakeInitiationPayload(BaseModel):
     matchId: int
     home: str
     away: str
+    public: bool
 
 class GuestStakeJoiningPayload(BaseModel):
     stakeId: int

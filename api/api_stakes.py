@@ -60,6 +60,9 @@ async def get_stake_data_by_invite_code(db: db_dependancy, user: user_dependancy
 
 @router.post('/initiate_stake')
 async def initiate_stake(db : db_dependancy, user: user_dependancy, stake_initiation_payload: OwnerStakeInitiationPayload):
+    """
+    this is the main algo for initiating a new stake to the system , the initiation is done by the user
+    """
     try:
         staking_service= StakingService(user.get('user_id'))
         print(f"the stake initiation payload has been reached by the user {user.get("user_id")}")
@@ -129,6 +132,9 @@ async def join_initiated_stake(db : db_dependancy, user: user_dependancy, guest_
         logger.error(f'an error occured: __join_initiated_stake  detail: {str(e)}', exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
         detail=f"an error occured: __join_initiated_stake, detail {str(e)}")
+
+# I will have to do another one here for joining initiated public stakes right ?
+
 
 
 @router.get('/get_user_stakes')
@@ -217,6 +223,7 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                     possibleWin=possible_win,
                     inviteCode= item.invite_code,
                     placement= item.placement,
+                    public= item.public,
                 )
 
                 print(f"stake data to be sent is {data.stakeAmount, data.away, data.home, data.stakeAmount, data.stakeResult, data.stakeStatus, data.date, data.stakeId}")
@@ -283,7 +290,8 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
         general_stakes_object.status= str(status.HTTP_200_OK)
         general_stakes_object.message= "the user stakes data has been retreived succesfuly"
 
-        return general_stakes_object
+        return general_stakes_object # this is what will be sent to the frontend
+
     except Exception as e:
         logger.error(f'an unexpected error occured: __proccess_stakes_data, {str(e)}', exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
