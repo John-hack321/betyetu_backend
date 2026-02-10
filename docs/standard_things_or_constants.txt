@@ -1,0 +1,3 @@
+time formatiing ( timezones and stuff ):
+
+

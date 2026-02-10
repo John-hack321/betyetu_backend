@@ -4,14 +4,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio.exc import AsyncContextAlreadyStarted
 from sqlalchemy.future import select
 from fastapi import status, HTTPException
+from sqlalchemy.orm import selectinload
+from sqlalchemy import func
 
+
+from api.utils.dependancies import db_dependancy
 from pydantic_schemas.stake_schemas import GuestStakeJoiningPayload, OwnerStakeInitiationPayload, StakeBaseModel, StakeWinner
 from db.models.model_stakes import Stake
 from db.models.model_users import Account
 from pydantic_schemas.stake_schemas import StakeStatus
 
+
 import logging
 import sys
+import math
 
 
 logging.basicConfig(
@@ -304,4 +310,87 @@ async def update_stake_with_winner_data_and_do_payouts(db: AsyncSession, match_i
         raise HTTPException(
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while updating stake data with winner data"
+        )
+
+
+
+async def get_public_stakes_from_db(db: AsyncSession, page: int= 1, limit: int= 100):
+    """
+    Fetches all public pending stakes with related user and match data.
+    Returns stakes that haven't been taken yet for anonymous staking.
+    """
+    try:
+        # Use selectinload for efficient relationship loading
+
+        # incooperating pagination to avoid chocking the frontend with a butload of info / data 
+        offset= ( page - 1) * limit
+
+        # get the total count for the pagination metadata
+        count_query = select(func.count()).select_from(Stake).where(
+            Stake.stake_status == StakeStatus.pending,
+            Stake.public == True,
+            Stake.invited_user_id.is_(None)
+        )
+        total_result = await db.execute(count_query)
+        total = total_result.scalar()
+
+        query = (
+            select(Stake)
+            .where(
+                Stake.stake_status == StakeStatus.pending,
+                Stake.public == True,
+                Stake.invited_user_id.is_(None)  # Only stakes not yet joined
+            )
+            .options(
+                selectinload(Stake.user),  # Load stake owner
+                selectinload(Stake.match)  # Load match details
+            )
+            .order_by(Stake.created_at.desc()).limit(limit).offset(offset)  # Most recent first and pagination metadata incoop too
+        )
+        
+        result = await db.execute(query)
+        db_stakes = result.scalars().all()
+
+        # part of the  pagination metadata
+        total_pages = math.ceil(total / limit)
+        
+        # Transform to response format
+        public_stakes = []
+        for stake in db_stakes:
+            public_stakes.append({
+                "stakeId": stake.id,
+                "data": stake.created_at,
+                "homeTeam": stake.home,
+                "awayTeam": stake.away,
+                "ownerPlacement": stake.placement,
+                "ownerStakeAmount": stake.amount,
+                "potentialWin": stake.possibleWin,
+                "guestPlacement": stake.invited_user_placement,
+                "league": stake.match.league_id,
+                "ownerDisplayName": stake.user.username, # NOTE: We will later on change this to display name once the display name functionality has been added to the user creation portal 
+                "matchId": stake.match.match_id,
+
+            })
+        
+        logger.info(f"Retrieved {len(public_stakes)} public stakes from database")
+
+        # hence we return a well formated data with all we need including paginatin metadata
+        return {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "total_pages": total_pages,
+            "has_next_page": page < total_pages,
+            "has_previous_page": page > 1,
+            "data": public_stakes
+        }
+        
+    except Exception as e:
+        logger.error(
+            f"Error fetching public stakes: {str(e)}", 
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching public stakes: {str(e)}"
         )

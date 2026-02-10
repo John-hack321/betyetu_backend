@@ -13,7 +13,7 @@ from pydantic_schemas.stake_schemas import GuestStakeJoiningPayload, OwnerStakeI
 from services.staking_service import staking_service
 from services.staking_service.staking_service import StakingService, inviteCodeModel
 from pydantic_schemas.stake_schemas import StakeObject
-from api.utils.util_stakes import get_user_stakes_where_user_is_owner_from_db, get_user_stakes_where_user_is_guest_from_db
+from api.utils.util_stakes import get_user_stakes_where_user_is_owner_from_db, get_user_stakes_where_user_is_guest_from_db, get_public_stakes_from_db
 
 logging.basicConfig(
     level=logging.INFO,
@@ -169,14 +169,47 @@ async def get_user_stakes(db: db_dependancy, user: user_dependancy):
 
 
 
+# an api call for fetching the public stakes for the public stakes betting place
+# features to incooperate : pagination , well cleaned data or something
 
-# UTILITY FUNCTIONS FOR AIDING THE STAKE API ENDPONTS
+@router.get('/get_all_available_public_stakes')
+async def get_all_available_public_stakes_function (db: db_dependancy, user: user_dependancy, page: int= 1, limit: int= 100):
+    try :
+
+        # just for extra keeness and security : 
+        if page < 1:
+            logger.error(f"page given : {page} is less then 1 ")
+
+        if limit < 1 or limit > 100:
+            logger.error(f"limit can only be in between 1 and 100 , limit given : {limit}")
+
+        public_stakes_data= await get_public_stakes_from_db(db, page , limit) # the stakes process and handling has already been done beforehand in the util stakes 
+        if not public_stakes_data:
+            logger.error(f"the data returned from the database is empty ")
+
+        return public_stakes_data
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"an unexpected error occured while getting all availabe public stakes : {str(e)}", 
+        exc_info=True)
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"an error occured while trying to fetch the availabe public stakes : {str(e)}"
+        )
+
+
+# UTILITY FUNCTIONS FOR AIDING THE STAKE API ENDPONTS 
 
 # TODO : implement pagination concept for the stakes api endpoint
 """
 processes the stakes data from the db 
 return an object that is easier to return to the frontend
 """
+
 async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: list[StakeBaseModel]):
     try: 
         general_stakes_object = StakesReturnObject(
