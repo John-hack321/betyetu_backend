@@ -17,4 +17,4 @@ class Team(Base, TimeStamp):
 
     league= relationship("League", back_populates="teams")
     season= relationship("Season", back_populates="teams")
-    fixtures= relationship("Team", back_populates="team")
+    fixtures= relationship("Fixture", back_populates="team")
