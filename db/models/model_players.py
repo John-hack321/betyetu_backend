@@ -27,7 +27,7 @@ class Player(Base, TimeStamp):
     __tablename__= "players"
 
     localId= Column(Integer, nullable=False, primary_key=True, unique=True, index= True)
-    id= Column(Integer, nullalbe=True, unique= True)
+    id= Column(Integer, nullable=True, unique= True)
     player_name= Column(String, nullable=False)
     title= Column(Enum(TitleType), nullable=True)
     height= Column(Integer, nullable=True)

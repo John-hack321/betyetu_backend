@@ -11,7 +11,7 @@ class Stake(Base, TimeStamp):
 
     id= Column(Integer, primary_key=True, nullable=False, index=True)
     user_id= Column(Integer, ForeignKey("users.id"), nullable=False)
-    match_id= Column(Integer, ForeignKey("fixtures.match_id"), nullable=False)
+    match_id= Column(Integer, ForeignKey("fixtures.local_id"), nullable=False)
     home= Column(String, nullable=False)
     away= Column(String, nullable=False)
     placement= Column(String, nullable=False)

@@ -10,7 +10,7 @@ class League(TimeStamp , Base):
 
     local_id= Column(Integer, nullable=False, primary_key=True)
     id = Column(Integer, nullable=True)
-    season_id = Column(Integer, ForeignKey("seasons.local_id"), nullalbe= False)
+    season_id = Column(Integer, ForeignKey("seasons.local_id"), nullable= False)
     name = Column(String, nullable=False)
     localized_name = Column(String, nullable=False)
     logo_url = Column(String, nullable=False)

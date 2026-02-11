@@ -16,7 +16,7 @@ class Fixture(Base , TimeStamp):
     __tablename__ = "fixtures"
 
     # reight now we hav alot of redundancies mostly when it comes to teams part but we will fix that later on
-    localId= Column(Integer, nullable=False, primary_key=True)
+    local_id= Column(Integer, nullable=False, primary_key=True)
     match_id= Column(Integer, nullable=True)
     team_id= Column(Integer, ForeignKey("teams.local_id"), nullable=False)
     league_id = Column(Integer, ForeignKey("leagues.local_id"), nullable=False)
