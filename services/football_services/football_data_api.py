@@ -341,8 +341,9 @@ class FootballDataService():
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR ,
             detail=f"the add leagues service failed : error message :  {e}")
 
-    async def add_fixutures_by_league_id(self, db: AsyncSession, league_id: int):
+    async def add_fixutures_by_league_id(self, db: AsyncSession, league_id: int, season_id: int):
         """
+        This is the main function that add fixtures to the system based on league Id 
         Adds the fixtures to the database according to the league id
         """
         try:

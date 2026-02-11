@@ -40,6 +40,7 @@ async def add_match_to_db(db : AsyncSession , match_data : MatchObject, season_i
     db_object = Fixture(
         match_id= match_data.match_id,
         league_id=match_data.league_id,
+        season_id= season_id,
         home_team_id= match_data.home_team_id,
         home_team= match_data.home_team,
         away_team_id= match_data.away_team_id,
@@ -50,8 +51,7 @@ async def add_match_to_db(db : AsyncSession , match_data : MatchObject, season_i
         home_score= match_data.home_score,
         away_score= match_data.away_score,
         fixture_status= match_data.fixture_status,
-        winner= match_data.winner,
-        season_id= season_id
+        winner= match_data.winner
     )
 
     db.add(db_object)

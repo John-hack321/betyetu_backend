@@ -72,7 +72,7 @@ async def add_leagues_to_system(db : db_dependancy):
         }
 
 @router.post('/add_league_fixtures_to_database_thus_making_it_a_popular_league')
-async def add_league_fixtures_to_database(db : db_dependancy , league_id : int):
+async def add_league_fixtures_to_database(db : db_dependancy , league_id : int, season_id: int):
     """
     when a league's data / fixtures is added to the database 
     then it is automaticaly a popular league as it will be added to popular leagues by default
@@ -80,7 +80,7 @@ async def add_league_fixtures_to_database(db : db_dependancy , league_id : int):
     searching through the super huger list of leagues in the normal leagues table
     """ 
     try :
-        await football_data_api_service.add_fixutures_by_league_id(db ,league_id)
+        await football_data_api_service.add_fixutures_by_league_id(db ,league_id, season_id)
 
         # after the data has been sourced and added to the database we them make the league a popular leageu
 
