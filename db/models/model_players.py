@@ -11,6 +11,18 @@ class TitleType(enum.Enum):
     midfielders= "midfielders"
     attackers= "attackers"
 
+"""
+Class representing a player in the database.
+
+Attributes:
+    localId: The player's id in the local database.
+    id: The player's id in the external database.
+    player_name: The player's name.
+    title: The player's title. Can be one of the following: coach, defenders, keepers, midfielders, attackers.
+    height: The player's height.
+    date_of_birth: The player's date of birth.
+
+"""
 class Player(Base, TimeStamp):
     __tablename__= "players"
 

@@ -10,6 +10,7 @@ class League(TimeStamp , Base):
 
     local_id= Column(Integer, nullable=False, primary_key=True)
     id = Column(Integer, nullable=True)
+    season_id = Column(Integer, ForeignKey("seasons.local_id"), nullalbe= False)
     name = Column(String, nullable=False)
     localized_name = Column(String, nullable=False)
     logo_url = Column(String, nullable=False)
@@ -17,6 +18,7 @@ class League(TimeStamp , Base):
 
     fixtures= relationship('Fixture', back_populates="league") # this is a one to many relationship so there is no need of setting uselist to false
     teams= relationship("Team", back_populates="league")
+    season= relationship("Season", back_populates="leagues")
 
 class PopularLeague(TimeStamp , Base):
     __tablename__ = "popular_leagues"
