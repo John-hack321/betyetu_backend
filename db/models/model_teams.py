@@ -17,4 +17,5 @@ class Team(Base, TimeStamp):
 
     league= relationship("League", back_populates="teams")
     season= relationship("Season", back_populates="teams")
-    fixtures= relationship("Fixture", back_populates="team")
+
+    # TODO: create a realtionship between teams and fixtures for easier prosessing of data and to eliminate redundancy in data

@@ -15,12 +15,12 @@ load_dotenv('.env.prod', override=True)
 
 # Import your models here so Alembic can detect them
 from db.db_setup import Base
-from db.models.model_users import User, Account, Transaction # Import all models
-from db.models.model_leagues import League , PopularLeague
-from db.models.model_teams import Team
-from db.models.model_fixtures import Fixture
-from db.models.model_stakes import Stake 
-from db.models.model_seasons import Season
+from db.models.model_users import User, Account, Transaction, Admin  # Import all models
+from db.models.model_seasons import Season  # Import Season first
+from db.models.model_leagues import League, PopularLeague  # Then League
+from db.models.model_teams import Team  # Then Team (depends on League and Season)
+from db.models.model_fixtures import Fixture  # Then Fixture (depends on Team)
+from db.models.model_stakes import Stake  # Then Stake (depends on Fixture)
 from db.models.model_players import Player
 
 # this is the Alembic Config object, which provides
