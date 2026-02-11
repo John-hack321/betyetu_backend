@@ -17,10 +17,10 @@ load_dotenv('.env.prod', override=True)
 from db.db_setup import Base
 from db.models.model_users import User, Account, Transaction # Import all models
 from db.models.model_leagues import League , PopularLeague
+from db.models.model_teams import Team
 from db.models.model_fixtures import Fixture
 from db.models.model_stakes import Stake 
 from db.models.model_seasons import Season
-from db.models.model_teams import Team
 from db.models.model_players import Player
 
 # this is the Alembic Config object, which provides
