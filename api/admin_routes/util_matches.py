@@ -35,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # this is solely for the admin
-async def add_match_to_db(db : AsyncSession , match_data : MatchObject):
+async def add_match_to_db(db : AsyncSession , match_data : MatchObject, season_id: int):
 
     db_object = Fixture(
         match_id= match_data.match_id,
@@ -51,6 +51,7 @@ async def add_match_to_db(db : AsyncSession , match_data : MatchObject):
         away_score= match_data.away_score,
         fixture_status= match_data.fixture_status,
         winner= match_data.winner,
+        season_id= season_id
     )
 
     db.add(db_object)

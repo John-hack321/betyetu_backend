@@ -104,6 +104,11 @@ class FootballDataService():
         else :
             return None
 
+    """
+    loops through the fixtures data ot get the relevant data we need 
+    takes this relevant data and appends it into a list 
+    this list is then returned ready for addition to the database
+    """
     async def parse_fixtures_data(self, match_object_response , league_id):
         parsed_match_object_list= []
         match_object_list = match_object_response['response']['matches']
@@ -172,13 +177,13 @@ class FootballDataService():
 
         return parsed_match_object_list
 
-    async def add_parsed_matches_object_to_database(self,db : AsyncSession, matches_object_list :list[MatchObject]):
+    async def add_parsed_matches_object_to_database(self,db : AsyncSession, matches_object_list :list[MatchObject], season_id: int):
         """
         we will use a loop to add the data to the database
         """
         for item in matches_object_list:
             try :
-                db_object = await add_match_to_db(db ,item)
+                db_object = await add_match_to_db(db ,item, season_id)
                 print(f'mathc with match_id of {db_object.match_id} as been added to the database successfuly')
             except Exception as e:
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR ,
