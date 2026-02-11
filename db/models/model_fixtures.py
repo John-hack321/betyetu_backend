@@ -20,6 +20,7 @@ class Fixture(Base , TimeStamp):
     match_id= Column(Integer, nullable=True)
     team_id= Column(Integer, ForeignKey("teams.local_id"), nullable=False)
     league_id = Column(Integer, ForeignKey("leagues.local_id"), nullable=False)
+    season_id = Column(Integer, ForeignKey("seasons.local_id"), nullable= False)
     home_team_id= Column(Integer, nullable=False)
     home_team= Column(String, nullable=False)
     away_team_id= Column(Integer, nullable=False)
@@ -35,3 +36,4 @@ class Fixture(Base , TimeStamp):
     league= relationship("League" , back_populates="fixtures")
     stakes = relationship('Stake', back_populates="match") # this is a many to one relationship with respect to the match object
     team= relationship("Team", back_populates="fixtures")
+    season= relationship("Season", back_populates="fixtures")

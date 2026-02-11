@@ -14,3 +14,4 @@ class Season(Base, TimeStamp):
     season_year_string= Column(String, nullable=True)
 
     teams= relationship("Team", back_populates="season")
+    fixtures= relationship("Fixture", back_populates= "season")
