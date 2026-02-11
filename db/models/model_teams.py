@@ -1,5 +1,5 @@
 from sqlalchemy.orm import relationship
-from db.db_setup import base
+from db.db_setup import Base
 from db.models.mixins import TimeStamp
 
 from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey , Text 
@@ -7,7 +7,7 @@ from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey ,
 class Team(Base, TimeStamp):
     __tablename__ = "teams"
 
-    local_id= Column(Integer, nullable=False, primary_key=True, Index= True)
+    local_id= Column(Integer, nullable=False, primary_key=True, index= True)
     id= Column(Integer, nullable= True)
     season_id= Column(Integer, ForeignKey("seasons.local_id"), nullable= True)
     league_id= Column(Integer, ForeignKey("leagues.local_id"),nullable=True)

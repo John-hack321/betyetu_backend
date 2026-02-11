@@ -4,6 +4,8 @@ from db.models.mixins import TimeStamp
 from sqlalchemy import String , Integer , ForeignKey , Text , DateTime , Boolean , Column, Enum
 from sqlalchemy.orm import relationship
 
+import enum
+
 class TitleType(enum.Enum):
     coach= "coach"
     defenders= "defenders"
