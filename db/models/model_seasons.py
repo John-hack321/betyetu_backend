@@ -11,6 +11,6 @@ class Season(Base, TimeStamp):
     id= Column(Integer, nullable=True)
     season_year_string= Column(String, nullable=True)
 
-    # Use string references
-    teams= relationship("Team", back_populates="season")
-    fixtures= relationship("Fixture", back_populates="season")
+    # Use string references with explicit foreign_keys
+    teams= relationship("Team", back_populates="season", foreign_keys="[Team.season_id]")
+    fixtures= relationship("Fixture", back_populates="season", foreign_keys="[Fixture.season_id]")

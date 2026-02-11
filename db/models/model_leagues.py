@@ -14,9 +14,9 @@ class League(TimeStamp, Base):
     logo_url = Column(String, nullable=False)
     fixture_added = Column(Boolean, default=False)
 
-    # Use string references
-    fixtures= relationship("Fixture", back_populates="league")
-    teams= relationship("Team", back_populates="league")
+    # Use string references with explicit foreign_keys
+    fixtures= relationship("Fixture", back_populates="league", foreign_keys="[Fixture.league_id]")
+    teams= relationship("Team", back_populates="league", foreign_keys="[Team.league_id]")
 
 class PopularLeague(TimeStamp, Base):
     __tablename__ = "popular_leagues"
