@@ -13,4 +13,4 @@ class Season(Base, TimeStamp):
 
     # Use string references with explicit foreign_keys
     teams= relationship("Team", back_populates="season", foreign_keys="[Team.season_id]")
-    fixtures= relationship("Fixture", back_populates="season", foreign_keys="[Fixture.season_id]")
+    fixtures= relationship("Fixture", back_populates="season")
