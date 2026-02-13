@@ -13,16 +13,14 @@ from alembic import context
 load_dotenv('.env')
 load_dotenv('.env.prod', override=True)
 
-# Import your models here so Alembic can detect them
 from db.db_setup import Base
-from db.models.model_users import User, Account, Transaction, Admin
-from db.models.model_seasons import Season  # FIRST - no dependencies
-from db.models.model_leagues import League, PopularLeague  # SECOND - no dependencies  
+from db.models.model_seasons import Season  # FIRST - Season must be imported before Fixture
+from db.models.model_leagues import League, PopularLeague  # SECOND
 from db.models.model_teams import Team  # THIRD - depends on League and Season
-from db.models.model_fixtures import Fixture  # FOURTH - depends on League, Season, Team
-from db.models.model_stakes import Stake  # FIFTH - depends on Fixture and User
-from db.models.model_players import Player  # Can be anywhere
-
+from db.models.model_fixtures import Fixture  # FOURTH - depends on Season, League, Team
+from db.models.model_users import User, Account, Transaction, Admin
+from db.models.model_stakes import Stake  # Depends on User and Fixture
+from db.models.model_players import Player
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

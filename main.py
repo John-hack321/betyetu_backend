@@ -19,6 +19,15 @@ from services.polling_services.polling_client import schedule_daily_polling, sho
 from services.sockets.socket_services import sio_app
 from services.caching_services.redis_client import add_popular_leagues_to_redis
 
+from db.models.model_seasons import Season  # FIRST
+from db.models.model_leagues import League, PopularLeague  # SECOND
+from db.models.model_teams import Team  # THIRD
+from db.models.model_players import Player  # Can be anywhere
+from db.models.model_fixtures import Fixture  # FOURTH - depends on Season
+from db.models.model_users import User, Account, Transaction, Admin  # FIFTH
+from db.models.model_stakes import Stake  # LAST - depends on User and Fixture
+
+
 # Define timezone
 NAIROBI_TZ = timezone('Africa/Nairobi')
 
