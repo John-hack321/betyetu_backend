@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 1f0e4990e927
+Revision ID: c557239e02ea
 Revises: 
-Create Date: 2026-02-11 15:54:49.391296
+Create Date: 2026-02-13 09:44:10.777813
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '1f0e4990e927'
+revision: str = 'c557239e02ea'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -31,6 +31,17 @@ def upgrade() -> None:
     sa.UniqueConstraint('admin_name')
     )
     op.create_index(op.f('ix_admin_admin_id'), 'admin', ['admin_id'], unique=False)
+    op.create_table('leagues',
+    sa.Column('local_id', sa.Integer(), nullable=False),
+    sa.Column('id', sa.Integer(), nullable=True),
+    sa.Column('name', sa.String(), nullable=False),
+    sa.Column('localized_name', sa.String(), nullable=False),
+    sa.Column('logo_url', sa.String(), nullable=False),
+    sa.Column('fixture_added', sa.Boolean(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.PrimaryKeyConstraint('local_id')
+    )
     op.create_table('players',
     sa.Column('localId', sa.Integer(), nullable=False),
     sa.Column('id', sa.Integer(), nullable=True),
@@ -88,16 +99,25 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_accounts_id'), 'accounts', ['id'], unique=False)
-    op.create_table('leagues',
+    op.create_table('fixtures',
     sa.Column('local_id', sa.Integer(), nullable=False),
-    sa.Column('id', sa.Integer(), nullable=True),
+    sa.Column('match_id', sa.Integer(), nullable=True),
+    sa.Column('league_id', sa.Integer(), nullable=False),
     sa.Column('season_id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(), nullable=False),
-    sa.Column('localized_name', sa.String(), nullable=False),
-    sa.Column('logo_url', sa.String(), nullable=False),
-    sa.Column('fixture_added', sa.Boolean(), nullable=True),
+    sa.Column('home_team_id', sa.Integer(), nullable=False),
+    sa.Column('home_team', sa.String(), nullable=False),
+    sa.Column('away_team_id', sa.Integer(), nullable=False),
+    sa.Column('away_team', sa.String(), nullable=False),
+    sa.Column('match_date', sa.DateTime(), nullable=False),
+    sa.Column('is_played', sa.Boolean(), nullable=False),
+    sa.Column('outcome', sa.String(), nullable=True),
+    sa.Column('home_score', sa.Integer(), nullable=True),
+    sa.Column('away_score', sa.Integer(), nullable=True),
+    sa.Column('fixture_status', sa.Enum('live', 'future', 'expired', name='fixturestatus'), nullable=True),
+    sa.Column('winner', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['league_id'], ['leagues.local_id'], ),
     sa.ForeignKeyConstraint(['season_id'], ['seasons.local_id'], ),
     sa.PrimaryKeyConstraint('local_id')
     )
@@ -117,47 +137,6 @@ def upgrade() -> None:
     sa.UniqueConstraint('team_name')
     )
     op.create_index(op.f('ix_teams_local_id'), 'teams', ['local_id'], unique=False)
-    op.create_table('transactions',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('account_id', sa.Integer(), nullable=False),
-    sa.Column('amount', sa.Integer(), nullable=True),
-    sa.Column('transaction_type', sa.Enum('withdrawal', 'deposit', name='trans_type'), nullable=True),
-    sa.Column('status', sa.Enum('successfull', 'pending', 'failed', name='trans_status'), nullable=True),
-    sa.Column('merchant_request_id', sa.String(length=50), nullable=True),
-    sa.Column('merchant_checkout_id', sa.String(length=50), nullable=True),
-    sa.Column('receipt_number', sa.String(length=50), nullable=True),
-    sa.Column('ConversationID', sa.String(length=50), nullable=True),
-    sa.Column('OriginatorConversationID', sa.String(length=50), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['account_id'], ['accounts.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_transactions_id'), 'transactions', ['id'], unique=False)
-    op.create_table('fixtures',
-    sa.Column('local_id', sa.Integer(), nullable=False),
-    sa.Column('match_id', sa.Integer(), nullable=True),
-    sa.Column('team_id', sa.Integer(), nullable=False),
-    sa.Column('league_id', sa.Integer(), nullable=False),
-    sa.Column('home_team_id', sa.Integer(), nullable=False),
-    sa.Column('home_team', sa.String(), nullable=False),
-    sa.Column('away_team_id', sa.Integer(), nullable=False),
-    sa.Column('away_team', sa.String(), nullable=False),
-    sa.Column('match_date', sa.DateTime(), nullable=False),
-    sa.Column('is_played', sa.Boolean(), nullable=False),
-    sa.Column('outcome', sa.String(), nullable=True),
-    sa.Column('home_score', sa.Integer(), nullable=True),
-    sa.Column('away_score', sa.Integer(), nullable=True),
-    sa.Column('fixture_status', sa.Enum('live', 'future', 'expired', name='fixturestatus'), nullable=True),
-    sa.Column('winner', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['league_id'], ['leagues.local_id'], ),
-    sa.ForeignKeyConstraint(['team_id'], ['teams.local_id'], ),
-    sa.PrimaryKeyConstraint('local_id')
-    )
     op.create_table('stakes',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
@@ -182,20 +161,38 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_stakes_id'), 'stakes', ['id'], unique=False)
+    op.create_table('transactions',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('account_id', sa.Integer(), nullable=False),
+    sa.Column('amount', sa.Integer(), nullable=True),
+    sa.Column('transaction_type', sa.Enum('withdrawal', 'deposit', name='trans_type'), nullable=True),
+    sa.Column('status', sa.Enum('successfull', 'pending', 'failed', name='trans_status'), nullable=True),
+    sa.Column('merchant_request_id', sa.String(length=50), nullable=True),
+    sa.Column('merchant_checkout_id', sa.String(length=50), nullable=True),
+    sa.Column('receipt_number', sa.String(length=50), nullable=True),
+    sa.Column('ConversationID', sa.String(length=50), nullable=True),
+    sa.Column('OriginatorConversationID', sa.String(length=50), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['account_id'], ['accounts.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_transactions_id'), 'transactions', ['id'], unique=False)
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_index(op.f('ix_stakes_id'), table_name='stakes')
-    op.drop_table('stakes')
-    op.drop_table('fixtures')
     op.drop_index(op.f('ix_transactions_id'), table_name='transactions')
     op.drop_table('transactions')
+    op.drop_index(op.f('ix_stakes_id'), table_name='stakes')
+    op.drop_table('stakes')
     op.drop_index(op.f('ix_teams_local_id'), table_name='teams')
     op.drop_table('teams')
-    op.drop_table('leagues')
+    op.drop_table('fixtures')
     op.drop_index(op.f('ix_accounts_id'), table_name='accounts')
     op.drop_table('accounts')
     op.drop_index(op.f('ix_users_id'), table_name='users')
@@ -205,6 +202,7 @@ def downgrade() -> None:
     op.drop_table('popular_leagues')
     op.drop_index(op.f('ix_players_localId'), table_name='players')
     op.drop_table('players')
+    op.drop_table('leagues')
     op.drop_index(op.f('ix_admin_admin_id'), table_name='admin')
     op.drop_table('admin')
     # ### end Alembic commands ###
