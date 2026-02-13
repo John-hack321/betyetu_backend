@@ -15,6 +15,6 @@ class Team(Base, TimeStamp):
     team_logo_url= Column(String, nullable=True)
     played= Column(Integer, nullable=True)
 
-    # String references are already used, just keep them
-    league= relationship("League", back_populates="teams")
-    season= relationship("Season", back_populates="teams")
+    # ✅ FIXED: Use column references for local FKs
+    league= relationship("League", back_populates="teams", foreign_keys=[league_id])
+    season= relationship("Season", back_populates="teams", foreign_keys=[season_id])

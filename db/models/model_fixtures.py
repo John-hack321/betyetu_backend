@@ -29,7 +29,7 @@ class Fixture(Base, TimeStamp):
     fixture_status= Column(Enum(FixtureStatus), default=FixtureStatus.future)
     winner= Column(String, nullable=True)
 
-    # Use string references for cross-file relationships
-    league= relationship("League", back_populates="fixtures")
-    stakes = relationship("Stake", back_populates="match")
-    season= relationship("Season", back_populates="fixtures")
+    # ✅ FIXED: Mix of local column refs and string refs (both work now!)
+    league= relationship("League", back_populates="fixtures", foreign_keys=[league_id])
+    stakes = relationship("Stake", back_populates="match", foreign_keys="[Stake.match_id]")
+    season= relationship("Season", back_populates="fixtures", foreign_keys=[season_id])
