@@ -5,7 +5,7 @@ from db.db_setup import Base
 from db.models.mixins import TimeStamp
 
 class Season(Base, TimeStamp):
-    __tablename__ = "seasons"
+    __tablename__ = "seasons" 
 
     local_id= Column(Integer, nullable=False, index=True, primary_key=True)
     id= Column(Integer, nullable=True)

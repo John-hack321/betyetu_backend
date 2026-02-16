@@ -369,7 +369,7 @@ class FootballDataService():
             parsed_match_list_data = await self.parse_fixtures_data(response_data, league_id)
 
             try:
-                await self.add_parsed_matches_object_to_database(db, parsed_match_list_data)
+                await self.add_parsed_matches_object_to_database(db, parsed_match_list_data, season_id)
                 logger.info(f"Successfully added fixtures for league ID {league_id}")
                 return True
             except Exception as e:
