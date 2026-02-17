@@ -107,5 +107,5 @@ async def get_current_admin_refresh_request_owner(token : admin_refresh_bearer_d
     except:
         raise HTTPException( status_code = status.HTTP_401_UNAUTHORIZED , detail = "could not validate the user")
 
-refresh_user_dependancy = Annotated[dict , Depends(get_current_refresh_request_owner)]
+refresh_admin_dependancy = Annotated[dict , Depends(get_current_admin_refresh_request_owner)]
 

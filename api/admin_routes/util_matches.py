@@ -62,6 +62,7 @@ async def add_match_to_db(db : AsyncSession , match_data : MatchObject, season_i
 """
 the function will be sending the fixture data to the frontend in chunks of 100 per page 
 this happens when the user logs in and is on the main page where the fixtures are displayed
+NOTE: this function works for the both the usr and the admin.
 """
 async def get_all_fixtures_from_db(db : AsyncSession , limit : int=100, page : int = 1):
     offset = (page - 1) * limit

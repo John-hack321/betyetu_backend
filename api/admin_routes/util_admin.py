@@ -5,11 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from api.utils.dependancies import bcrypt_context
 from db.models.model_users import Admin
+from pydantic_schemas.admin_schemas import CreateAdminRequest
 
 logger= logging.getLogger(__name__)
 
-async def db_create_one_time_admin(db: AsyncSession, admin_username: str, admin_password: str):
+async def db_create_one_time_admin(db: AsyncSession, admin_data: CreateAdminRequest):
     try : 
 
         # first check if admin is present so that we prevent creation of more admins
@@ -26,8 +28,8 @@ async def db_create_one_time_admin(db: AsyncSession, admin_username: str, admin_
             )
 
         admin_object= Admin(
-            admin_name= admin_username,
-            admin_password= admin_password,
+            admin_name= admin_data.admin_username,
+            hashed_password= bcrypt_context.hash(admin_data.admni_password)
         )
 
         db.add(admin_object)

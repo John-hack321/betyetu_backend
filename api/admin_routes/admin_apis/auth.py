@@ -5,7 +5,7 @@ from sqlalchemy import false
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.admin_routes.util_admin import get_admin_by_admin_name
-from api.utils.dependancies import bcrypt_context, admin_dependancy, db_dependancy, admin_refresh_bearer
+from api.utils.dependancies import bcrypt_context, admin_dependancy, db_dependancy, refresh_admin_dependancy
 from api.admin_routes.util_admin import db_create_one_time_admin
 
 from datetime import datetime, timezone, timedelta
@@ -15,6 +15,7 @@ import os
 from dotenv import load_dotenv
 import sys
 
+from pydantic_schemas.admin_schemas import CreateAdminRequest
 from pydantic_schemas.users_schema import AdminToken
 
 load_dotenv()
@@ -98,7 +99,7 @@ async def admin_login_for_access_token(
 
 # this is for the admin login token refreshing
 @router.post('/token/refresh' ) # so this neans when querying this endpoint we structure it this way : /auth/token/refresh and this is based on the prefix at the start of the file 
-async def get_new_access_token(data : admin_refresh_bearer): # this needs an eyes
+async def get_new_access_token(data : refresh_admin_dependancy): # this needs an eyes
     username = data.get('username')
     user_id = data.get('id')
     print("we are now extracting user data from the ")
@@ -111,9 +112,9 @@ async def get_new_access_token(data : admin_refresh_bearer): # this needs an eye
 # note : this endpoint created here we will use it in future requests when building the other secure endpoints 
 
 @router.post('/auth/one_time_admin_signup')
-async def one_time_admin_signup(db: db_dependancy, admin_name: str, admin_password: str):
+async def one_time_admin_signup(db: db_dependancy, admin_data: CreateAdminRequest):
     try:
-        db_one_time_admin_object= await db_create_one_time_admin(db, admin_name, admin_password )
+        db_one_time_admin_object= await db_create_one_time_admin(db, admin_data )
 
         if not db_one_time_admin_object:
             logger.error(f"the one time admin object returned from the db is not defined")
