@@ -31,5 +31,5 @@ class Fixture(Base, TimeStamp):
 
     # ✅ FIXED: Mix of local column refs and string refs (both work now!)
     league= relationship("League", back_populates="fixtures", foreign_keys=[league_id])
-    stakes = relationship("Stake", back_populates="match", foreign_keys="[Stake.fixture_id]")
+    stakes = relationship("Stake", back_populates="match", foreign_keys="[Stake.match_id]")
     season= relationship("Season", back_populates="fixtures", foreign_keys=[season_id])
