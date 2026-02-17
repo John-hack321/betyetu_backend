@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from api.api_fixtures import get_all_fixtures
 from db.models.model_stakes import Stake
 from db.models.model_fixtures import Fixture
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,12 +11,13 @@ from typing import Dict, Any
 import logging
 import sys
 
-from api.utils.dependancies import db_dependancy, user_dependancy
+from api.utils.dependancies import admin_dependancy, db_dependancy, user_dependancy
 from db.db_setup import get_db
 from api.admin_routes.util_matches import admin_log_live_match_scores, admin_make_match_live, delete_match_from_db, delete_matches_by_league_id
 from api.admin_routes.util_leagues import delete_league_from_popular_leagues_table, update_league_added_status_to_true_or_false
 from services.caching_services.redis_client import update_live_match_away_score, update_live_match_home_score
 from services.sockets.socket_services import update_live_match_scores_on_frontend, update_match_to_live_and_update_live_data_on_frontend, update_match_to_live_on_frontend_with_live_data_too
+from api.admin_routes.util_matches import get_all_fixtures_from_db
 
 router = APIRouter(
     prefix="/admin/fixtures",
@@ -254,4 +256,26 @@ async def log_live_match_scores(db: db_dependancy, match_id: int, score_string :
         raise HTTPException(
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail= f"an error occured whle trying to log live match scores for match of id {match_id},  {str(e)}"
+        )
+
+@router.get('/get_todays_matches')
+async def admin_get_all_fixtures(db: db_dependancy, admin: admin_dependancy, limit: int=100, page: int=1):
+    try:
+        db_fixtures_object= await get_all_fixtures_from_db(db, limit, page)
+        if not db_fixtures_object:
+            logger.error(f"the fixtures object returned from the database was empty / undefined")
+
+            raise HTTPException(
+                status_code= status.HTTP_204_NO_CONTENT,
+                detail = f" no match data was found in the database, {str(e)}"
+            )
+
+        return db_fixtures_object
+
+    except Exception as e:
+        logger.error(f" an error occured while admin was trying to get all of todays matches, {str(e)}", exc_info= True)
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f" an error occured while admin was trying to get all of todays matches, {str(e)}"
         )

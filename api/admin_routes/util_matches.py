@@ -61,6 +61,7 @@ async def add_match_to_db(db : AsyncSession , match_data : MatchObject, season_i
 
 """
 the function will be sending the fixture data to the frontend in chunks of 100 per page 
+this happens when the user logs in and is on the main page where the fixtures are displayed
 """
 async def get_all_fixtures_from_db(db : AsyncSession , limit : int=100, page : int = 1):
     offset = (page - 1) * limit
@@ -257,7 +258,7 @@ async def convert_fixtures_result_object_from_to_db_desired_return_object(rows):
             fixture_dict= row[0].__dict__
             parsed_fixture_object = {}
 
-            parsed_fixture_object['match_id']= fixture_dict.get('match_id')
+            parsed_fixture_object['match_id']= fixture_dict.get('local_id') # for universality we will use the local Id rather than the fixture Id when sending data to the frontned
             parsed_fixture_object['match_date']= fixture_dict.get('match_date')
             parsed_fixture_object['league_id']= fixture_dict.get('league_id')
             parsed_fixture_object['league_name']= row.league_name
