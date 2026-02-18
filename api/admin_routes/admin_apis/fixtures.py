@@ -258,7 +258,7 @@ async def log_live_match_scores(db: db_dependancy, match_id: int, score_string :
             detail= f"an error occured whle trying to log live match scores for match of id {match_id},  {str(e)}"
         )
 
-@router.get('/get_todays_matches')
+@router.get('/admin_get_fixture')
 async def admin_get_all_fixtures(db: db_dependancy, admin: admin_dependancy, limit: int=100, page: int=1):
     try:
         db_fixtures_object= await get_all_fixtures_from_db(db, limit, page)
