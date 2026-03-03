@@ -197,14 +197,21 @@ async def delete_league_matches(
 # since we can not always afford to pay for apis or just for the part where we are starting before we afford actual api we might need to have dp manual logging of matches that are currently bing played
 
 @router.post('/make_match_live_and_start_logging')
-async def make_match_live_and_start_logging_match_with_live_data(db: db_dependancy, match_id: int):
+async def make_match_live_and_start_logging_match_with_live_data(db: db_dependancy,  match_id: int ):
+
+    # we need a functionality that first checks if the start time of the match has reachec before making it live in the first place
     try :
         db_match_object= await admin_make_match_live(db, match_id)
         if not db_match_object:
             logger.error(f"an error occured while admin trying to make match live")
 
+            return {
+                'status_code': status.HTTP_404_NOT_FOUND,
+                'message': "the match you are trying to make live was not found"
+            }
 
-        await update_match_to_live_and_update_live_data_on_frontend(match_id, score_string)
+        # this one will be made usefull once we make use of the socketio fuctionality
+        # await update_match_to_live_and_update_live_data_on_frontend(match_id, score_string)
 
         # find the best way to tell the frontned of success , maybe use the response model at the top of the query thingy
         return {
@@ -232,7 +239,7 @@ async def make_match_live_and_start_logging_match_with_live_data(db: db_dependan
 async def log_live_match_scores(db: db_dependancy, match_id: int, score_string : str):
     try: 
         home_score, away_score= map(int, score_string.split(' - '))
-        db_match_object= await admin_log_live_match_scores(db, match_id, home_score, away_score)
+        db_match_object= await admin_log_live_match_scores(db, match_id, score_string, home_score, away_score)
 
         if not db_match_object:
             logger.error(f"an error occured while trying to log match with live data")
@@ -240,7 +247,7 @@ async def log_live_match_scores(db: db_dependancy, match_id: int, score_string :
         # NOTE: after logging the data in the db we need to send updates to the users to via socketio
 
         logger.info(f"now sending live match updates to the frontend via socketio")
-        await update_live_match_scores_on_frontend(match_id, score_string)
+        # await update_live_match_scores_on_frontend(match_id, score_+string) # socketio functinality : this is for the users only  not for admin okay for admin you will have to reload the system 
 
     except HTTPException:
         raise 

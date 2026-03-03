@@ -295,6 +295,7 @@ async def update_fixture_data_and_determine_winner(db: AsyncSession, match_id: i
     uses the match socores to determine the match outcome ( determine the winnig team)
     it update the fixture object in the db , with the winning team data 
     the it returns the winning team for processing of user data in the main parent function it works for
+    this works for the data delivery / sourcing algorithms in the data services in the services folder 
     """
     try:
         query= select(Fixture).where(Fixture.match_id == match_id)
@@ -404,6 +405,7 @@ async def get_todays_matches(db: AsyncSession):
             detail=f"An error occurred while getting today's matches from the database: {str(e)}"
         )
 
+"this I think is for both the admin and automated part of the system both can call the function "
 async def update_home_score_and_away_score_on_db(
     db: AsyncSession, 
     match_id: str, 
@@ -500,11 +502,14 @@ async def determine_match_winner(home_score: int, away_score: int) -> str:
             detail= f"an error occured while trying to update the match winner, {str(e)}"
         )
 
-
 async def admin_make_match_live(db: AsyncSession, match_id: int):
+    """
+    NOTE: the match_id that we get from the frontend equates to the local id in the fixtures column
+    build for logggin of matches by the admin 
+    this is the previous function call that makes the match live in the first place
+    """
     try:
-
-        query= select(Fixture).where(Fixture.match_id== match_id)
+        query= select(Fixture).where(Fixture.local_id== match_id)
         result= await db.execute(query)
         db_match_object= result.scalars().first()
 
@@ -534,13 +539,17 @@ async def admin_make_match_live(db: AsyncSession, match_id: int):
 
 
 async def admin_log_live_match_scores(db: AsyncSession,  match_id: int, score_string: str, home_score: int, away_score: int):
+    """
+    this is the official function for admin for loggin live matches with
+    this is built for the admin mnaul logging processes
+    """
     try:
-        query= select(Fixture).where(Fixture.match_id== match_id)
+        query= select(Fixture).where(Fixture.local_id== match_id)
         result= await db.execute(query)
         db_match_object= result.scalars().first()
 
-        db_match_object.home_score= home_score
         db_match_object.away_score= away_score
+        db_match_object.home_score= home_score
         db_match_object.outcome= score_string
 
         await db.commit()
