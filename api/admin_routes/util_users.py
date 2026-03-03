@@ -12,18 +12,17 @@ import logging
 
 logger= logging.getLogger(__name__)
 
-async def admin_get_all_users_from_db(db: AsyncSession, user_id: int):
+async def admin_get_all_users_from_db(db: AsyncSession):
     try: 
 
 
         # we need the total count for the number of stakes the user has ( pedning and all in general )
         # we need the number of pedning stakes and other stakes too
-        total_stake_count_query= select(func.count()).select(Stake).where(Stake.user_id == user_id)
+        total_stake_count_query= select(func.count()).select(Stake).where()
         total_stakes_count_result= await db.execute(total_stake_count_query)
 
 
         total_pending_stakes_count_query= select(func.count()).select(Stake).where(
-            Stake.user_id == user_id,
             Stake.stake_status == StakeStatus.pending
         )
         total_pending_stakes_count_result= await db.execute(total_pending_stakes_count_query)
