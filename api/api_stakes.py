@@ -228,7 +228,7 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                     else: 
                         result = "lost"
 
-                # Convert the stake status to the appropriate enum value
+                # Convert the stake status to the appropriate string version of the enum value for the frontend
 
                 status_value="pending"
 
@@ -237,6 +237,8 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                     status_value= "pending"
                 elif item.stake_status == StakeStatus.successfull:
                     status_value= "successful"
+                elif item.stake_status == StakeStatus.progressing:
+                    status_value= "progressing"
                 print(f"analys of stake status hs been done and the value of the stakeStatus has been set to {status_value}")
 
                 possible_win: str | int= 0
@@ -286,6 +288,8 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                     status_value= "pending"
                 elif item.stake_status == StakeStatus.successfull:
                     status_value= "successful"
+                elif item.stake_status == StakeStatus.progressing:
+                    status_value= "progressing"
 
                 possible_win: str | int= 0
                 if item.possibleWin== None:

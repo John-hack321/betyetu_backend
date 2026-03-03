@@ -8,6 +8,7 @@ import sys
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.admin_routes.util_stakes import get_stakes_from_db, set_stake_winner
 from api.utils.dependancies import db_dependancy
+from api.utils.util_stakes import get_user_stakes_where_user_is_owner_from_db, get_user_stakes_where_user_is_guest_from_db
 
 
 logging.basicConfig(
@@ -65,4 +66,35 @@ async def admin_set_winner(db: db_dependancy, stake_id: int, side: int): # 1 is 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while settig stake owner: {str(e)}"
+        )
+
+
+@router.get('all_user_stakes')
+async def admin_get_all_user_stakes():
+    try:
+        db_owner_stakes= await get_user_stakes_where_user_is_owner_from_db(db, user.get('user_id'))
+        if db_owner_stakes == None:
+            logger.error(f'an error occured db_owner_stakes: object returned is not expected, object return : {db_owner_stakes}')
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"failed to get woner stakes from the database"
+            )
+
+        db_guest_stakes= await get_user_stakes_where_user_is_guest_from_db(db, user.get('user_id'))
+        if db_guest_stakes == None:
+            logger.error(f'an error occured __db_guest-stakes: object returned is not expected: object returned : {db_guest_stakes}')
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"failed to get guest stakes from the database"
+            )
+
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        logger.error(f"an error occured while admin was getting all user stakes: {str(e)}", exc_info=True)
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured while trying to get all user stakes from the backend by the admin, {str(e)}"
         )

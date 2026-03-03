@@ -99,8 +99,8 @@ async def add_guest_stake_data_to_db(db: AsyncSession, user_id: int, guest_stake
         db_object.invited_user_placement= guest_stake_data.placement
         db_object.invited_user_id= user_id
 
-        # in this process we also need to set the value of the stake to successful too
-        db_object.stake_status= StakeStatus.successfull
+        # in this process we also need to set the value of the stake to progressing to show that it is in progress
+        db_object.stake_status= StakeStatus.progressing
         
         await db.commit()
         await db.refresh(db_object)

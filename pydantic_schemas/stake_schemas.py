@@ -16,8 +16,9 @@ class StakeWinner(str, Enum):
     none = "none"
 
 class StakeStatus(str, Enum):
-    successfull = "successfull"
-    pending = "pending"
+    successfull = "successfull" # once the stake has been fully completed and funds sent it will be marked as successful
+    pending = "pending" # as stake owner waits for a stake guest to join stake will be marked as pending
+    progressing= "progressing" # for stakes that have been joined the match hasn't been played yet
 
 
 

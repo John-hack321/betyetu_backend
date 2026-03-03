@@ -16,7 +16,7 @@ router= APIRouter(
 )
 
 @router.get('/get_all_users')
-async def admin_get_all_users(db: db_dependancy, admin: admin_dependancy, limit : int= 100, page: int= 1): # we need to make this paginated if it is not yet paginated
+async def admin_get_all_users(db: db_dependancy,  limit : int= 100, page: int= 1): # we need to make this paginated if it is not yet paginated
     try:
         db_users_object= await admin_get_all_users_from_db(db, limit, page)
         if not db_users_object:
