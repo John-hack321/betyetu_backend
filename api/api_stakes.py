@@ -137,11 +137,13 @@ async def join_initiated_stake(db : db_dependancy, user: user_dependancy, guest_
 
 
 
+#TODO: find a way to paginate these stakes data
+#for now we can still enjoy the luxury of the users not having a lot of stakes that might overload the frontend
 @router.get('/get_user_stakes')
 async def get_user_stakes(db: db_dependancy, user: user_dependancy):
     try:
         db_owner_stakes= await get_user_stakes_where_user_is_owner_from_db(db, user.get('user_id'))
-        if db_owner_stakes == None:
+        if db_owner_stakes is None:
             logger.error(f'an error occured db_owner_stakes: object returned is not expected, object return : {db_owner_stakes}')
             raise HTTPException(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,

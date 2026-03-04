@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class inviteCodeModel(BaseModel):
     statusCode: int
-    inviteCode: strs
+    inviteCode: str
 
 class StakingService:
     def __init__(self, user_id: int):

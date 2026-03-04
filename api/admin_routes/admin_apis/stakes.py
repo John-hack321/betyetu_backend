@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.admin_routes.util_stakes import get_stakes_from_db, set_stake_winner
 from api.utils.dependancies import db_dependancy
 from api.utils.util_stakes import get_user_stakes_where_user_is_owner_from_db, get_user_stakes_where_user_is_guest_from_db
+from api.api_stakes import process_stakes_data
 
 
 logging.basicConfig(
@@ -31,8 +32,7 @@ router = APIRouter(
 async def admin_get_user_stakes(db: db_dependancy):
     try:
         db_stakes= await get_stakes_from_db(db)
-        if not db_stakes:
-            logger.error(f"the stakes object returned from the db is not valid")
+        # if none is found an empty list will be returned
         return db_stakes
 
     except Exception as e:
@@ -48,12 +48,12 @@ async def admin_get_user_stakes(db: db_dependancy):
 async def admin_set_winner(db: db_dependancy, stake_id: int, side: int): # 1 is for owner and 2 is for the 
     try:
         db_stake_object= await set_stake_winner(db, stake_id, side)
-        if not db_stake_object:
-            logger.error(f"the object returned for the db is ont defined")
+        if db_stake_object is None:
+            logger.error(f"stake {stake_id} not found")
 
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"stake object returned from db is not defined"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"stake {stake_id} not found"
             )
 
         return True
@@ -69,24 +69,15 @@ async def admin_set_winner(db: db_dependancy, stake_id: int, side: int): # 1 is 
         )
 
 
-@router.get('all_user_stakes')
-async def admin_get_all_user_stakes():
+@router.get('/all_user_stakes')
+async def admin_get_all_user_stakes(db: AsyncSession, user_id: int):
     try:
-        db_owner_stakes= await get_user_stakes_where_user_is_owner_from_db(db, user.get('user_id'))
-        if db_owner_stakes == None:
-            logger.error(f'an error occured db_owner_stakes: object returned is not expected, object return : {db_owner_stakes}')
-            raise HTTPException(
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"failed to get woner stakes from the database"
-            )
+        db_owner_stakes= await get_user_stakes_where_user_is_owner_from_db(db, user_id)
+        db_guest_stakes= await get_user_stakes_where_user_is_guest_from_db(db, user_id)
+        processed_stakes_data= await process_stakes_data(db_owner_stakes, db_guest_stakes)
 
-        db_guest_stakes= await get_user_stakes_where_user_is_guest_from_db(db, user.get('user_id'))
-        if db_guest_stakes == None:
-            logger.error(f'an error occured __db_guest-stakes: object returned is not expected: object returned : {db_guest_stakes}')
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"failed to get guest stakes from the database"
-            )
+        # we return the full stakes , sorting will be done in the frontend
+        return processed_stakes_data
 
     except HTTPException:
         raise
