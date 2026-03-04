@@ -28,7 +28,7 @@ router = APIRouter(
     tags=['admin/stakes']
 )
 
-@router.get('/')
+@router.get('/') # just for testing stuff , delete after completin of project
 async def admin_get_user_stakes(db: db_dependancy):
     try:
         db_stakes= await get_stakes_from_db(db)
@@ -70,11 +70,11 @@ async def admin_set_winner(db: db_dependancy, stake_id: int, side: int): # 1 is 
 
 
 @router.get('/all_user_stakes')
-async def admin_get_all_user_stakes(db: AsyncSession, user_id: int):
+async def admin_get_all_user_stakes(db: db_dependancy, user_id: int):
     try:
         db_owner_stakes= await get_user_stakes_where_user_is_owner_from_db(db, user_id)
         db_guest_stakes= await get_user_stakes_where_user_is_guest_from_db(db, user_id)
-        processed_stakes_data= await process_stakes_data(db_owner_stakes, db_guest_stakes)
+        processed_stakes_data= await process_stakes_data(db_owner_stakes, db_guest_stakes, admin=True)
 
         # we return the full stakes , sorting will be done in the frontend
         return processed_stakes_data

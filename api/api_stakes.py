@@ -212,7 +212,7 @@ processes the stakes data from the db
 return an object that is easier to return to the frontend
 """
 
-async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: list[StakeBaseModel]):
+async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: list[StakeBaseModel], admin: bool= False):
     try: 
         general_stakes_object = StakesReturnObject(
             status="success",
@@ -248,20 +248,41 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                     possible_win= "pending"
                 else:
                     possible_win= item.possibleWin
+
+
+                if admin:
+                    data = StakeObject(
+                                stakeId=item.id,
+                                role= "owner",
+                                userId= item.user_id,
+                                invited_user_id= item.invited_user_id,
+                                amount= item.amount,
+                                invited_user_amount= item.invited_user_amount,
+                                match_id= item.match_id,
+                                home=item.home,
+                                away=item.away,
+                                stakeType= item.public,
+                                winner= result,
+                                inviteCode= item.invite_code,
+                                possibleWin= item.possibleWin,
+                                stakeStatus= status_value,
+                                placement= item.placement,
+                    )
                 
-                data = StakeObject(
-                    stakeId=item.id,
-                    home=item.home,
-                    away=item.away,
-                    stakeAmount=item.amount,
-                    stakeStatus=status_value,
-                    stakeResult=result,
-                    date=item.created_at.isoformat(),
-                    possibleWin=possible_win,
-                    inviteCode= item.invite_code,
-                    placement= item.placement,
-                    public= item.public,
-                )
+                else:
+                    data = StakeObject(
+                                stakeId=item.id,
+                                home=item.home,
+                                away=item.away,
+                                stakeAmount=item.amount,
+                                stakeStatus=status_value,
+                                stakeResult=result,
+                                date=item.created_at.isoformat(),
+                                possibleWin=possible_win,
+                                inviteCode= item.invite_code,
+                                placement= item.placement,
+                                public= item.public,
+                            )
 
                 print(f"stake data to be sent is {data.stakeAmount, data.away, data.home, data.stakeAmount, data.stakeResult, data.stakeStatus, data.date, data.stakeId}")
 
@@ -301,17 +322,38 @@ async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: 
                 
                 print(f"analys of stake status hs been done and the value of the stakeStatus has been set to {status_value}")
                 
-                data = StakeObject(
-                    stakeId=item.id,
-                    home=item.home,
-                    away=item.away,
-                    stakeAmount=item.amount,
-                    stakeStatus=status_value,
-                    stakeResult=result,
-                    date=item.created_at.isoformat(),
-                    possibleWin= possible_win,
-                    placement= item.invited_user_placement,
-                )
+                if admin:
+                    data = StakeObject(
+                                stakeId=item.id,
+                                role= "owner",
+                                userId= item.user_id,
+                                invited_user_id= item.invited_user_id,
+                                amount= item.amount,
+                                invited_user_amount= item.invited_user_amount,
+                                match_id= item.match_id,
+                                home=item.home,
+                                away=item.away,
+                                stakeType= item.public,
+                                winner= result,
+                                inviteCode= item.invite_code,
+                                possibleWin= item.possibleWin,
+                                stakeStatus= status_value,
+                                placement= item.placement,
+                            )
+
+                else:
+                    data = StakeObject(
+                                stakeId=item.id,
+                                home=item.home,
+                                away=item.away,
+                                stakeAmount=item.amount,
+                                stakeStatus=status_value,
+                                stakeResult=result,
+                                date=item.created_at.isoformat(),
+                                possibleWin= possible_win,
+                                placement= item.invited_user_placement,
+                                public= item.public
+                    )
 
                 print(f"stake data to be sent is {data.stakeAmount, data.away, data.home, data.stakeAmount, data.stakeResult, data.stakeStatus, data.date, data.stakeId}")
 

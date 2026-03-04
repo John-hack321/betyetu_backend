@@ -2,7 +2,7 @@ from numbers import Number
 from typing import Optional
 from fastapi.openapi.models import BaseModelWithConfig
 from pydantic import BaseModel
-from sqlalchemy import Null
+from sqlalchemy import Boolean, Null
 import enum
 
 from db.db_setup import Base
@@ -23,7 +23,8 @@ class StakeStatus(str, Enum):
 
 
 class StakeBaseModel(BaseModel):
-    id: int
+    id: Optional[int]
+    user_id: Optional[int]= None # made it optionla because I added it too late : TODO : fix this issue later on
     match_id: int
     home: str
     away: str
@@ -32,11 +33,23 @@ class StakeBaseModel(BaseModel):
     invited_user_id: Optional[str]= None
     invited_user_placement: Optional[str]= None
     invited_user_amount: Optional[str]= None
-    invite_code: str
-    stake_status: StakeStatus
-    winner: Optional[StakeWinner]= None
+    invite_code: Optional[str]
+    stake_status: Optional[StakeStatus]
+    winner: Optional[StakeWinner] | str= None
     possibleWin: Optional[int]= None
     public: bool= False
+
+class StakeObject(StakeBaseModel): # this one if for the fetching of stakes from the db for showcase on frontend
+    stakeId: int
+    userId: int
+    role: Optional[str]= None # reserved for the admin fetching
+    home: str
+    away: str
+    stakeAmount: int # this is the Amount in the admin side
+    stakeStatus: Optional[StakeStatus | str]
+    stakeResult: str
+    date: Optional[str]
+    inviteCode: Optional[str]= None
 
 class StakeInitiationPayload(BaseModel):
     match_id: int
@@ -78,17 +91,6 @@ class StakeDataObject(BaseModel): # this one if for the fetching of stake data w
     stakeOwner: StakeOwner
     stakeGeust: StakeGeust
 
-class StakeObject(BaseModel): # this one if for the fetching of stakes from the db for showcase on frontend
-    stakeId: int
-    home: str
-    away: str
-    stakeAmount: int
-    stakeStatus: StakeStatus | str
-    stakeResult: str
-    date: str
-    possibleWin: str | int
-    inviteCode: Optional[str]= None
-    placement: str
 
 class StakesReturnObject(BaseModel):
     status: str
