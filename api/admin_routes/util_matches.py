@@ -5,6 +5,7 @@ from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from db.db_setup import Base
 from pydantic_schemas.fixtures_schemas import FixtureScoreResponse, MatchObject
 from db.models.model_fixtures import Fixture
+from db.models.model_stakes import Stake
 from db.models.model_leagues import League
 from db.models.model_fixtures import FixtureStatus
 
@@ -64,7 +65,7 @@ the function will be sending the fixture data to the frontend in chunks of 100 p
 this happens when the user logs in and is on the main page where the fixtures are displayed
 NOTE: this function works for the both the usr and the admin.
 """
-async def get_all_fixtures_from_db(db : AsyncSession , limit : int=100, page : int = 1):
+async def get_all_fixtures_from_db(db : AsyncSession , userId: int, limit : int=100, page : int = 1):
     offset = (page - 1) * limit
     total= await db.scalar(select(func.count()).select_from(Fixture))
     current_time_eat = datetime.now(NAIROBI_TZ).replace(tzinfo=None)
@@ -94,9 +95,16 @@ async def get_all_fixtures_from_db(db : AsyncSession , limit : int=100, page : i
         )
     
     fixtures = await convert_fixtures_result_object_from_to_db_desired_return_object(rows)
+    # on the return object we are also going to return the number of live stakes so that the users know immediately he enters the app
+    # we do the counting down here since it is a different thing in itself
+
+    no_of_public_stakes= await db.scalar(select(func.count()).select_from(Stake).where(
+        Stake.public == True,
+        Stake.user_id != userId)) # counts number of public stakes
 
     return {
         "page" : page,
+        "no_of_public_stakes": no_of_public_stakes,
         "limit" : limit,
         "total" : total,
         "total_pages" : math.ceil(total / limit),
@@ -541,7 +549,7 @@ async def admin_make_match_live(db: AsyncSession, match_id: int):
 async def admin_log_live_match_scores(db: AsyncSession,  match_id: int, score_string: str, home_score: int, away_score: int):
     """
     this is the official function for admin for loggin live matches with
-    this is built for the admin mnaul logging processes
+    this is built for the admin manual logging processes
     """
     try:
         query= select(Fixture).where(Fixture.local_id== match_id)

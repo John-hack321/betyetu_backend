@@ -1,64 +1,87 @@
-from numbers import Number
 from typing import Optional
-from fastapi.openapi.models import BaseModelWithConfig
 from pydantic import BaseModel
-from sqlalchemy import Boolean, Null
-import enum
-
-from db.db_setup import Base
-
 from enum import Enum
 
-# enum schemas
+
+# ── Enums ────────────────────────────────────────────────────────────────────
+
 class StakeWinner(str, Enum):
     owner = "owner"
     guest = "guest"
     none = "none"
 
 class StakeStatus(str, Enum):
-    successfull = "successfull" # once the stake has been fully completed and funds sent it will be marked as successful
-    pending = "pending" # as stake owner waits for a stake guest to join stake will be marked as pending
-    progressing= "progressing" # for stakes that have been joined the match hasn't been played yet
+    successfull = "successfull"   # stake fully completed, funds sent
+    pending = "pending"           # waiting for a guest to join
+    progressing = "progressing"   # joined, match not played yet
 
 
+# ── DB row representation (mirrors the ORM columns) ──────────────────────────
 
 class StakeBaseModel(BaseModel):
-    id: Optional[int]
-    user_id: Optional[int]= None # made it optionla because I added it too late : TODO : fix this issue later on
-    match_id: int
-    home: str
-    away: str
-    placement: str
-    amount: int
-    invited_user_id: Optional[str]= None
-    invited_user_placement: Optional[str]= None
-    invited_user_amount: Optional[str]= None
-    invite_code: Optional[str]
-    stake_status: Optional[StakeStatus]
-    winner: Optional[StakeWinner] | str= None
-    possibleWin: Optional[int]= None
-    public: bool= False
+    """
+    Direct representation of a Stake ORM row.
+    Used internally when reading rows back from the DB — NOT sent to the frontend.
+    All fields are optional to handle partial reads gracefully.
+    """
+    id: Optional[int] = None
+    user_id: Optional[int] = None
+    match_id: Optional[int] = None
+    home: Optional[str] = None
+    away: Optional[str] = None
+    placement: Optional[str] = None
+    amount: Optional[int] = None
+    invited_user_id: Optional[int] = None
+    invited_user_placement: Optional[str] = None
+    invited_user_amount: Optional[int] = None
+    invite_code: Optional[str] = None
+    stake_status: Optional[StakeStatus] = None
+    winner: Optional[StakeWinner | str] = None
+    possibleWin: Optional[int] = None
+    public: bool = False
 
-class StakeObject(StakeBaseModel): # this one if for the fetching of stakes from the db for showcase on frontend
+    class Config:
+        from_attributes = True
+
+
+# ── Frontend response objects ─────────────────────────────────────────────────
+
+class UserStakeObject(BaseModel):
+    """Returned to regular users from /stakes/get_user_stakes"""
     stakeId: int
+    home: str
+    away: str
+    stakeAmount: Optional[int] = None
+    stakeStatus: str                   # "pending" | "successful" | "progressing"
+    stakeResult: str                   # "pending" | "won" | "lost"
+    date: str                          # ISO string from created_at
+    possibleWin: Optional[int | str] = None
+    inviteCode: Optional[str] = None
+    placement: Optional[str] = None
+    public: Optional[bool] = False
+
+
+class AdminStakeObject(BaseModel):
+    """Returned to admin from /admin/stakes/all_user_stakes"""
+    stakeId: int
+    role: str                          # "owner" | "guest"
     userId: int
-    role: Optional[str]= None # reserved for the admin fetching
+    invited_user_id: Optional[int] = None
+    amount: Optional[int] = None
+    invited_user_amount: Optional[int] = None
+    match_id: Optional[int] = None
     home: str
     away: str
-    stakeAmount: int # this is the Amount in the admin side
-    stakeStatus: Optional[StakeStatus | str]
-    stakeResult: str
-    date: Optional[str]
-    inviteCode: Optional[str]= None
+    stakeType: Optional[bool] = None   # public flag
+    winner: str                        # "pending" | "won" | "lost"
+    inviteCode: Optional[str] = None
+    possibleWin: Optional[int] = None
+    stakeStatus: str
+    placement: Optional[str] = None
 
-class StakeInitiationPayload(BaseModel):
-    match_id: int
-    placement: str
-    amount: int
-    home: str
-    away: str
 
-# this is what the user(stake_owner) will be sending when initiating a stake
+# ── Payload models (request bodies) ──────────────────────────────────────────
+
 class OwnerStakeInitiationPayload(BaseModel):
     placement: str
     stakeAmount: int
@@ -73,26 +96,49 @@ class GuestStakeJoiningPayload(BaseModel):
     placement: str
 
 
+# ── Stake detail view (while actively staking / previewing) ──────────────────
+
 class StakeOwner(BaseModel):
     stakeAmount: int
     stakePlacement: str
 
 class StakeGeust(BaseModel):
-    stakeAmount: Optional[int]= 0
-    stakePlacement: Optional[str]= ""
+    stakeAmount: Optional[int] = 0
+    stakePlacement: Optional[str] = ""
 
-
-class StakeDataObject(BaseModel): # this one if for the fetching of stake data while actively staking
+class StakeDataObject(BaseModel):
     stakeId: int
     matchId: int
-    stakeId: int
     homeTeam: str
     awayTeam: str
     stakeOwner: StakeOwner
     stakeGeust: StakeGeust
 
 
-class StakesReturnObject(BaseModel):
+# ── Collection wrappers ───────────────────────────────────────────────────────
+
+class UserStakesReturnObject(BaseModel):
     status: str
     message: str
-    stakeData: list[StakeObject]
+    stakeData: list[UserStakeObject]
+
+class AdminStakesReturnObject(BaseModel):
+    status: str
+    message: str
+    stakeData: list[AdminStakeObject]
+
+
+# ── Legacy aliases (kept so existing imports don't break immediately) ─────────
+# These point to the user-facing model which is the original intent of StakeObject.
+StakeObject = UserStakeObject
+StakesReturnObject = UserStakesReturnObject
+
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+
+class StakeInitiationPayload(BaseModel):
+    match_id: int
+    placement: str
+    amount: int
+    home: str
+    away: str

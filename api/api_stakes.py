@@ -5,15 +5,29 @@ import sys
 import json
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.util import expand_column_list_from_order_by
 
 from api.utils.dependancies import db_dependancy, user_dependancy
 from api.utils.util_stakes import get_stake_by_invite_code_from_db
-from pydantic_schemas.stake_schemas import GuestStakeJoiningPayload, OwnerStakeInitiationPayload, StakeBaseModel, StakeGeust, StakeInitiationPayload, StakeObject, StakeStatus, StakeWinner, StakesReturnObject, StakeDataObject, StakeOwner
-from services.staking_service import staking_service
+from pydantic_schemas.stake_schemas import (
+    GuestStakeJoiningPayload,
+    OwnerStakeInitiationPayload,
+    StakeBaseModel,
+    StakeGeust,
+    UserStakeObject,
+    AdminStakeObject,
+    UserStakesReturnObject,
+    AdminStakesReturnObject,
+    StakeDataObject,
+    StakeOwner,
+    StakeStatus,
+    StakeWinner,
+)
 from services.staking_service.staking_service import StakingService, inviteCodeModel
-from pydantic_schemas.stake_schemas import StakeObject
-from api.utils.util_stakes import get_user_stakes_where_user_is_owner_from_db, get_user_stakes_where_user_is_guest_from_db, get_public_stakes_from_db
+from api.utils.util_stakes import (
+    get_user_stakes_where_user_is_owner_from_db,
+    get_user_stakes_where_user_is_guest_from_db,
+    get_public_stakes_from_db,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,80 +38,68 @@ logging.basicConfig(
     ]
 )
 
-logger= logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-router= APIRouter(
+router = APIRouter(
     prefix="/stakes",
     tags=['stakes']
 )
 
+
 @router.get('/get_stake_data')
 async def get_stake_data_by_invite_code(db: db_dependancy, user: user_dependancy, invite_code: str):
-    print(f' the get stakes data by invite code has been reached by user of details : ', user)
-    try :
-        db_object= await get_stake_by_invite_code_from_db(db, invite_code)
+    print(f'the get stakes data by invite code has been reached by user of details : ', user)
+    try:
+        db_object = await get_stake_by_invite_code_from_db(db, invite_code)
         if not db_object:
             logger.error(f"an error occured while getting stake data from db: __get_stake_data_by_invite_code")
             raise RuntimeError('an error occured while fetching stake object from the database')
 
-        stake_data= StakeDataObject(
-            matchId= db_object.match_id,
-            stakeId= db_object.id,
-            homeTeam= db_object.home,
-            awayTeam= db_object.away,
-            stakeOwner= StakeOwner(stakeAmount= db_object.amount, stakePlacement=db_object.placement),
-            stakeGeust= StakeGeust(stakeAmount=db_object.invited_user_amount, stakePlacement=db_object.invited_user_placement),
+        stake_data = StakeDataObject(
+            matchId=db_object.match_id,
+            stakeId=db_object.id,
+            homeTeam=db_object.home,
+            awayTeam=db_object.away,
+            stakeOwner=StakeOwner(stakeAmount=db_object.amount, stakePlacement=db_object.placement),
+            stakeGeust=StakeGeust(stakeAmount=db_object.invited_user_amount, stakePlacement=db_object.invited_user_placement),
         )
 
-        print(f"stake data gottne fromt he endpoint is :", stake_data)
-
         return stake_data
-        
+
     except Exception as e:
         logger.error(f"an error occured: get_stake_data_by_invite_code, detail: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"an error occured: __get_stake_data_by_invite_code, api_stakes detail: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"an error occured: __get_stake_data_by_invite_code, api_stakes detail: {str(e)}")
+
 
 @router.post('/initiate_stake')
-async def initiate_stake(db : db_dependancy, user: user_dependancy, stake_initiation_payload: OwnerStakeInitiationPayload):
-    """
-    this is the main algo for initiating a new stake to the system , the initiation is done by the user
-    """
+async def initiate_stake(db: db_dependancy, user: user_dependancy, stake_initiation_payload: OwnerStakeInitiationPayload):
     try:
-        staking_service= StakingService(user.get('user_id'))
-        print(f"the stake initiation payload has been reached by the user {user.get("user_id")}")
+        staking_service = StakingService(user.get('user_id'))
+        print(f"the stake initiation payload has been reached by the user {user.get('user_id')}")
 
-        invite_code_object: inviteCodeModel = await staking_service.owner_initiate_stake(db, stake_initiation_payload )
+        invite_code_object: inviteCodeModel = await staking_service.owner_initiate_stake(db, stake_initiation_payload)
         print(f"the invite code gotten from staking service is: {invite_code_object.inviteCode}")
 
         if not invite_code_object:
             logger.error(f'the staking service failed to produce a valid payload')
 
-        print(f"invite code: {invite_code_object.inviteCode} has now been sent to the frontend")
-
         return invite_code_object
 
-    except Exception as e: 
-
+    except Exception as e:
         await db.rollback()
-
         logger.error(f'an error occured: __initeate_stake detail: {str(e)}', exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured: __initiate_stake, {str(e)}")
+
 
 @router.post('/cancel_stake')
 async def cancel_stake_placement_stake_owner_scenario(db: db_dependancy, user: user_dependancy, invite_code: str):
-    """
-    this will be used for deleting / cancelling stake placement based on the invite code
-    """
-    
     logger.info(f'the stake cancelation route has been accessed with data : {invite_code}')
-
     try:
-        staking_service= StakingService(user.get("user_id"))
-        cancellation_response= await staking_service.owner_cancel_stake()
-        
+        staking_service = StakingService(user.get("user_id"))
+        cancellation_response = await staking_service.owner_cancel_stake()
         return cancellation_response
 
     except HTTPException:
@@ -105,87 +107,67 @@ async def cancel_stake_placement_stake_owner_scenario(db: db_dependancy, user: u
 
     except Exception as e:
         await db.rollback()
-
-        logger.error(f"an error occured whle canelling stake placement: {str(e)}",
-        exc_info=True,
-        extra={
-            "invite_code": invite_code
-        })
-
+        logger.error(f"an error occured whle canelling stake placement: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while cancelling stake from db: {str(e)}"
         )
 
+
 @router.post('/join_initiated_stake')
-async def join_initiated_stake(db : db_dependancy, user: user_dependancy, guest_stake_data: GuestStakeJoiningPayload):
+async def join_initiated_stake(db: db_dependancy, user: user_dependancy, guest_stake_data: GuestStakeJoiningPayload):
     try:
         print(f"user of username : {user.get('username')} has just accessed the join initiated stake endpint")
-        print(f"the data he has acessed the endpint with is :", json.dumps(guest_stake_data, indent=4, default=str))
+        print(f"the data he has acessed the endpint with is :", json.dumps(guest_stake_data.model_dump(), indent=4, default=str))
 
-        staking_service= StakingService(user.get('user_id'))
-        join_stake_response= await staking_service.join_initiated_stake(db, guest_stake_data)
-        
+        staking_service = StakingService(user.get('user_id'))
+        join_stake_response = await staking_service.join_initiated_stake(db, guest_stake_data)
+
         return join_stake_response
 
     except Exception as e:
         logger.error(f'an error occured: __join_initiated_stake  detail: {str(e)}', exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"an error occured: __join_initiated_stake, detail {str(e)}")
-
-# I will have to do another one here for joining initiated public stakes right ?
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"an error occured: __join_initiated_stake, detail {str(e)}")
 
 
-
-#TODO: find a way to paginate these stakes data
-#for now we can still enjoy the luxury of the users not having a lot of stakes that might overload the frontend
 @router.get('/get_user_stakes')
 async def get_user_stakes(db: db_dependancy, user: user_dependancy):
     try:
-        db_owner_stakes= await get_user_stakes_where_user_is_owner_from_db(db, user.get('user_id'))
+        db_owner_stakes = await get_user_stakes_where_user_is_owner_from_db(db, user.get('user_id'))
         if db_owner_stakes is None:
-            logger.error(f'an error occured db_owner_stakes: object returned is not expected, object return : {db_owner_stakes}')
+            logger.error(f'an error occured db_owner_stakes: object returned is not expected')
             raise HTTPException(
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"failed to get woner stakes from the database"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"failed to get owner stakes from the database"
             )
 
-        db_guest_stakes= await get_user_stakes_where_user_is_guest_from_db(db, user.get('user_id'))
-        if db_guest_stakes == None:
-            logger.error(f'an error occured __db_guest-stakes: object returned is not expected: object returned : {db_guest_stakes}')
+        db_guest_stakes = await get_user_stakes_where_user_is_guest_from_db(db, user.get('user_id'))
+        if db_guest_stakes is None:
+            logger.error(f'an error occured __db_guest_stakes: object returned is not expected')
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"failed to get guest stakes from the database"
             )
 
-        stakes_return_data= await process_stakes_data(db_owner_stakes, db_guest_stakes)
-        print(f"stake data to be sent back to the use is {stakes_return_data.stakeData}")
-
-        # TODO: define a better way \ find a way to return the stakes data well with better handling
+        stakes_return_data = await process_stakes_data(db_owner_stakes, db_guest_stakes)
         return stakes_return_data.stakeData
 
     except Exception as e:
         logger.error(f"an unexpected error occured: __get_user_stakes: detail: {str(e)}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail= f"an unexpected error occured: __get_user_stakes: detail {str(e)}")
+                            detail=f"an unexpected error occured: __get_user_stakes: detail {str(e)}")
 
-
-
-# an api call for fetching the public stakes for the public stakes betting place
-# features to incooperate : pagination , well cleaned data or something
 
 @router.get('/get_all_available_public_stakes')
-async def get_all_available_public_stakes_function (db: db_dependancy, user: user_dependancy, page: int= 1, limit: int= 100):
-    try :
-
-        # just for extra keeness and security : 
+async def get_all_available_public_stakes_function(db: db_dependancy, user: user_dependancy, page: int = 1, limit: int = 100):
+    try:
         if page < 1:
             logger.error(f"page given : {page} is less then 1 ")
-
         if limit < 1 or limit > 100:
             logger.error(f"limit can only be in between 1 and 100 , limit given : {limit}")
 
-        public_stakes_data= await get_public_stakes_from_db(db, page , limit) # the stakes process and handling has already been done beforehand in the util stakes 
+        public_stakes_data = await get_public_stakes_from_db(db, page, limit)
         if not public_stakes_data:
             logger.error(f"the data returned from the database is empty ")
 
@@ -195,185 +177,177 @@ async def get_all_available_public_stakes_function (db: db_dependancy, user: use
         raise
 
     except Exception as e:
-        logger.error(f"an unexpected error occured while getting all availabe public stakes : {str(e)}", 
-        exc_info=True)
-
+        logger.error(f"an unexpected error occured while getting all availabe public stakes : {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while trying to fetch the availabe public stakes : {str(e)}"
         )
 
 
-# UTILITY FUNCTIONS FOR AIDING THE STAKE API ENDPONTS 
+# ── Utility: process stakes into frontend-ready objects ───────────────────────
 
-# TODO : implement pagination concept for the stakes api endpoint
-"""
-processes the stakes data from the db 
-return an object that is easier to return to the frontend
-"""
+def _resolve_result_for_owner(item) -> str:
+    if item.winner is None:
+        return "pending"
+    return "won" if item.winner == StakeWinner.owner else "lost"
 
-async def process_stakes_data(owner_stakes: list[StakeBaseModel], guest_stakes: list[StakeBaseModel], admin: bool= False):
-    try: 
-        general_stakes_object = StakesReturnObject(
-            status="success",
-            message="Stakes retrieved successfully",
-            stakeData=[]
-        )
 
-        # loop through the owner stakes to determine which stakes the user won
+def _resolve_result_for_guest(item) -> str:
+    if item.winner is None:
+        return "pending"
+    return "won" if item.winner == StakeWinner.guest else "lost"
+
+
+def _resolve_status(item) -> str:
+    if item.stake_status == StakeStatus.successfull:
+        return "successful"
+    if item.stake_status == StakeStatus.progressing:
+        return "progressing"
+    return "pending"
+
+
+def _resolve_possible_win(item) -> int | str:
+    return item.possibleWin if item.possibleWin is not None else "pending"
+
+
+async def process_stakes_data(
+    owner_stakes: list,
+    guest_stakes: list,
+    admin: bool = False,
+):
+    """
+    Processes raw DB stake rows into the correct response shape.
+
+    - admin=False  →  returns UserStakesReturnObject  (stakeData: list[UserStakeObject])
+    - admin=True   →  returns AdminStakesReturnObject (stakeData: list[AdminStakeObject])
+    """
+    try:
+        if admin:
+            result_obj = AdminStakesReturnObject(
+                status="success",
+                message="Stakes retrieved successfully",
+                stakeData=[],
+            )
+        else:
+            result_obj = UserStakesReturnObject(
+                status="success",
+                message="Stakes retrieved successfully",
+                stakeData=[],
+            )
+
+        # ── Owner stakes ──────────────────────────────────────────────────────
         try:
             for item in owner_stakes:
-                result= "pending"
-                if item.winner != None:
-                    if item.winner == StakeWinner.owner:
-                        result = 'won'
-                    else: 
-                        result = "lost"
+                result = _resolve_result_for_owner(item)
+                status_value = _resolve_status(item)
+                possible_win = _resolve_possible_win(item)
 
-                # Convert the stake status to the appropriate string version of the enum value for the frontend
-
-                status_value="pending"
-
-                print(f"the value fo stake status from the database before manipulation is : {item.stake_status}")
-                if item.stake_status == StakeStatus.pending:
-                    status_value= "pending"
-                elif item.stake_status == StakeStatus.successfull:
-                    status_value= "successful"
-                elif item.stake_status == StakeStatus.progressing:
-                    status_value= "progressing"
-                print(f"analys of stake status hs been done and the value of the stakeStatus has been set to {status_value}")
-
-                possible_win: str | int= 0
-                if item.possibleWin== None:
-                    possible_win= "pending"
-                else:
-                    possible_win= item.possibleWin
-
+                logger.info(f"owner stake {item.id}: status={status_value}, result={result}")
 
                 if admin:
-                    data = StakeObject(
-                                stakeId=item.id,
-                                role= "owner",
-                                userId= item.user_id,
-                                invited_user_id= item.invited_user_id,
-                                amount= item.amount,
-                                invited_user_amount= item.invited_user_amount,
-                                match_id= item.match_id,
-                                home=item.home,
-                                away=item.away,
-                                stakeType= item.public,
-                                winner= result,
-                                inviteCode= item.invite_code,
-                                possibleWin= item.possibleWin,
-                                stakeStatus= status_value,
-                                placement= item.placement,
+                    data = AdminStakeObject(
+                        stakeId=item.id,
+                        role="owner",
+                        userId=item.user_id,
+                        invited_user_id=item.invited_user_id,
+                        amount=item.amount,
+                        invited_user_amount=item.invited_user_amount,
+                        match_id=item.match_id,
+                        home=item.home,
+                        away=item.away,
+                        stakeType=item.public,
+                        winner=result,
+                        inviteCode=item.invite_code,
+                        possibleWin=item.possibleWin,
+                        stakeStatus=status_value,
+                        placement=item.placement,
                     )
-                
                 else:
-                    data = StakeObject(
-                                stakeId=item.id,
-                                home=item.home,
-                                away=item.away,
-                                stakeAmount=item.amount,
-                                stakeStatus=status_value,
-                                stakeResult=result,
-                                date=item.created_at.isoformat(),
-                                possibleWin=possible_win,
-                                inviteCode= item.invite_code,
-                                placement= item.placement,
-                                public= item.public,
-                            )
+                    data = UserStakeObject(
+                        stakeId=item.id,
+                        home=item.home,
+                        away=item.away,
+                        stakeAmount=item.amount,
+                        stakeStatus=status_value,
+                        stakeResult=result,
+                        date=item.created_at.isoformat(),
+                        possibleWin=possible_win,
+                        inviteCode=item.invite_code,
+                        placement=item.placement,
+                        public=item.public,
+                    )
 
-                print(f"stake data to be sent is {data.stakeAmount, data.away, data.home, data.stakeAmount, data.stakeResult, data.stakeStatus, data.date, data.stakeId}")
+                result_obj.stakeData.append(data)
 
-                general_stakes_object.stakeData.append(data)
-        except Exception as e:  # Properly catch the exception
-            logger.error(f'An error occurred in __process_stakes_data while processing owner stakes: {str(e)}')
+        except Exception as e:
+            logger.error(f'An error occurred in process_stakes_data while processing owner stakes: {str(e)}', exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f'Error processing stake owner data: {str(e)}'
             )
 
-        # loop through the guest stakes now
-        try: 
+        # ── Guest stakes ──────────────────────────────────────────────────────
+        try:
             for item in guest_stakes:
-                result="pending"
-                if item.winner != None: # we have to do this so that if the colum is blank we dont asgn winners or losser
-                    if item.winner == StakeWinner.guest:
-                        result = 'won'
-                    else: 
-                        result = "lost"
+                result = _resolve_result_for_guest(item)
+                status_value = _resolve_status(item)
+                possible_win = _resolve_possible_win(item)
 
-                status_value= "pending"
+                logger.info(f"guest stake {item.id}: status={status_value}, result={result}")
 
-                print(f"the value fo stake status from the database before manipulation is : {item.stake_status}")
-                if item.stake_status == StakeStatus.pending:
-                    status_value= "pending"
-                elif item.stake_status == StakeStatus.successfull:
-                    status_value= "successful"
-                elif item.stake_status == StakeStatus.progressing:
-                    status_value= "progressing"
-
-                possible_win: str | int= 0
-                if item.possibleWin== None:
-                    possible_win= "pending"
-                else:
-                    possible_win= item.possibleWin
-                
-                print(f"analys of stake status hs been done and the value of the stakeStatus has been set to {status_value}")
-                
                 if admin:
-                    data = StakeObject(
-                                stakeId=item.id,
-                                role= "owner",
-                                userId= item.user_id,
-                                invited_user_id= item.invited_user_id,
-                                amount= item.amount,
-                                invited_user_amount= item.invited_user_amount,
-                                match_id= item.match_id,
-                                home=item.home,
-                                away=item.away,
-                                stakeType= item.public,
-                                winner= result,
-                                inviteCode= item.invite_code,
-                                possibleWin= item.possibleWin,
-                                stakeStatus= status_value,
-                                placement= item.placement,
-                            )
-
+                    data = AdminStakeObject(
+                        stakeId=item.id,
+                        role="guest",
+                        userId=item.user_id,
+                        invited_user_id=item.invited_user_id,
+                        amount=item.amount,
+                        invited_user_amount=item.invited_user_amount,
+                        match_id=item.match_id,
+                        home=item.home,
+                        away=item.away,
+                        stakeType=item.public,
+                        winner=result,
+                        inviteCode=item.invite_code,
+                        possibleWin=item.possibleWin,
+                        stakeStatus=status_value,
+                        placement=item.placement,
+                    )
                 else:
-                    data = StakeObject(
-                                stakeId=item.id,
-                                home=item.home,
-                                away=item.away,
-                                stakeAmount=item.amount,
-                                stakeStatus=status_value,
-                                stakeResult=result,
-                                date=item.created_at.isoformat(),
-                                possibleWin= possible_win,
-                                placement= item.invited_user_placement,
-                                public= item.public
+                    data = UserStakeObject(
+                        stakeId=item.id,
+                        home=item.home,
+                        away=item.away,
+                        stakeAmount=item.amount,
+                        stakeStatus=status_value,
+                        stakeResult=result,
+                        date=item.created_at.isoformat(),
+                        possibleWin=possible_win,
+                        placement=item.invited_user_placement,
+                        public=item.public,
                     )
 
-                print(f"stake data to be sent is {data.stakeAmount, data.away, data.home, data.stakeAmount, data.stakeResult, data.stakeStatus, data.date, data.stakeId}")
+                result_obj.stakeData.append(data)
 
-                general_stakes_object.stakeData.append(data)
         except Exception as e:
-            logger.error(f'An error occurred in __process_stakes_data while processing guest stakes: {str(e)}')
+            logger.error(f'An error occurred in process_stakes_data while processing guest stakes: {str(e)}', exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f'Error processing guest stake data: {str(e)}'
             )
 
-        #before we return the data we will sort by the time of creation: created_at
-        general_stakes_object.stakeData.sort(key=lambda x: x.date, reverse=True)
-        
-        general_stakes_object.status= str(status.HTTP_200_OK)
-        general_stakes_object.message= "the user stakes data has been retreived succesfuly"
+        # Sort by date (user path only — admin objects don't have a `date` field)
+        if not admin:
+            result_obj.stakeData.sort(key=lambda x: x.date, reverse=True)
 
-        return general_stakes_object # this is what will be sent to the frontend
+        result_obj.status = str(status.HTTP_200_OK)
+        result_obj.message = "the user stakes data has been retrieved successfully"
+
+        return result_obj
 
     except Exception as e:
-        logger.error(f'an unexpected error occured: __proccess_stakes_data, {str(e)}', exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail= f'an unexpected error occured: __process_stakes_data, {str(e)} ')
+        logger.error(f'an unexpected error occured: __process_stakes_data, {str(e)}', exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'an unexpected error occured: __process_stakes_data, {str(e)}'
+        )

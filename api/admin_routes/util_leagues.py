@@ -1,9 +1,11 @@
 from attr import exceptions
 from fastapi import HTTPException , status
+import math
 
 from db.models.model_leagues import League , PopularLeague
 from pydantic_schemas.league_schemas import LeagueBaseModel
 from api.utils.dependancies import user_dependancy , db_dependancy
+from sqlalchemy import func
 from db.db_setup import Base
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -142,7 +144,6 @@ async def delete_league_from_popular_leagues_table(db: AsyncSession, league_id: 
             detail=f"an error occured while deleting league from popular leagues in the database: {str(e)}"
         )
 
-
 async def get_popular_leageus_ids_from_db(db: AsyncSession):
     try: 
         query= select(PopularLeague)
@@ -163,4 +164,32 @@ async def get_popular_leageus_ids_from_db(db: AsyncSession):
         raise HTTPException(
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an errro occured while getting popular leagues ids form the database"
+        )
+
+async def admin_get_leagues_list_from_db (db: AsyncSession, limit: int= 100, page: int = 1):
+    try :
+
+        offset= (page - 1)* limit
+        total= await db.scalar(select(func.count()).select_from(League))
+        query= select(League).limit(limit).offset(offset)
+        result= await db.execute(query)
+        league_data= result.scalars().all()
+
+        # no need for data checks since an empty list is also a valid return type
+
+        return {
+            "page" : page,
+            "limit" : limit,
+            "total" : total,
+            "total_pages" : math.ceil(total / limit),
+            "has_next_page" : (page * limit) < total,
+            "data" : league_data
+        }
+
+    except Exception as e:
+        logger.error(f"an error occured while admin was getting all leagues list from db: {str(e)}")
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"an error occured whle admin was getting all leageus list from db, {str(e)}"
         )

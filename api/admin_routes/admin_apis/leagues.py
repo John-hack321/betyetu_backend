@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pydantic_schemas.league_schemas import LeagueBaseModel
 from services.football_services.football_data_api import FootballDataService
-from api.admin_routes.util_leagues import add_league_to_popular_leagues, get_league_by_id_from_db, get_leagues_list_from_db, get_popular_leagues_from_db, update_league_added_status_to_true_or_false
+from api.admin_routes.util_leagues import add_league_to_popular_leagues, get_league_by_id_from_db, get_leagues_list_from_db, get_popular_leagues_from_db, update_league_added_status_to_true_or_false, admin_get_leagues_list_from_db
 from api.utils.dependancies import db_dependancy
 from services.football_services.football_data_api import football_data_api_service
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,10 +27,6 @@ async def get_leagues_list(db : db_dependancy):
     if not query the api for the leagues
     """
     db_leagues = await get_leagues_list_from_db(db)
-
-    if not db_leagues:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR ,
-        detail="failed to fech the leagues data from the database")
 
     return db_leagues
 
@@ -190,4 +186,23 @@ async def make_league_a_popular_league(db : AsyncSession , league_id : int):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while making league of league id : {league_id} a populre leageu: {str(e)}"
+        )
+
+
+# these ones are actualy built for the new admin interface constructed
+@router.get('/admin_get_all_leagues')
+async def admin_get_all_leagues_list(db: db_dependancy, limit: int= 100 , page: int = 1):
+    try :
+        db_leageus_list= await admin_get_leagues_list_from_db(db, limit, page)
+        return db_leageus_list # we just return since the data has already been sorted on the other side 
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"an error occured while admin getting all leageus list: {str(e)}", exc_info=True)
+
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"an error occured while admin getting all leagues list"
         )
