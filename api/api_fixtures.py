@@ -20,6 +20,9 @@ router = APIRouter(
 
 @router.get('/')
 async def get_all_fixtures(db : db_dependancy , user : user_dependancy , limit : int=100, page : int=1):
+    """
+    this is the main function for getting all fixtures from db by users.
+    """
     try:
         fixtures_data = await get_all_fixtures_from_db(db , user.get("user_id") , limit , page)
         return fixtures_data

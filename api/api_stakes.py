@@ -133,6 +133,9 @@ async def join_initiated_stake(db: db_dependancy, user: user_dependancy, guest_s
 
 @router.get('/get_user_stakes')
 async def get_user_stakes(db: db_dependancy, user: user_dependancy):
+    """
+    this is the main function for letting the user to get all stakes available
+    """
     try:
         db_owner_stakes = await get_user_stakes_where_user_is_owner_from_db(db, user.get('user_id'))
         if db_owner_stakes is None:
@@ -235,7 +238,7 @@ async def process_stakes_data(
                 stakeData=[],
             )
 
-        # ── Owner stakes ──────────────────────────────────────────────────────
+        # Owner stakes 
         try:
             for item in owner_stakes:
                 result = _resolve_result_for_owner(item)
@@ -286,7 +289,7 @@ async def process_stakes_data(
                 detail=f'Error processing stake owner data: {str(e)}'
             )
 
-        # ── Guest stakes ──────────────────────────────────────────────────────
+        # Guest stakes 
         try:
             for item in guest_stakes:
                 result = _resolve_result_for_guest(item)

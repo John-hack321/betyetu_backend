@@ -369,6 +369,7 @@ async def get_public_stakes_from_db(db: AsyncSession, page: int= 1, limit: int= 
                 "league": stake.match.league_id,
                 "ownerDisplayName": stake.user.username, # NOTE: We will later on change this to display name once the display name functionality has been added to the user creation portal 
                 "matchId": stake.match.match_id,
+                "matchDate": stake.match.match_date,
 
             })
         
