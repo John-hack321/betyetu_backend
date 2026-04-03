@@ -70,7 +70,7 @@ class UniqueStake(Base, TimeStamp):
     creator = relationship("User", foreign_keys=[creator_id])
     entries = relationship("UniqueStakeEntry", back_populates="unique_stake")
     match = relationship("Fixture", back_populates="unique_stakes", foreign_keys=[match_id])
-league = relationship("League", back_populates="unique_stakes", foreign_keys=[league_id])
+    league = relationship("League", back_populates="unique_stakes", foreign_keys=[league_id])
 
 
 class UniqueStakeEntry(Base, TimeStamp):

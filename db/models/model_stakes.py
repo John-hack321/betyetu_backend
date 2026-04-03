@@ -29,7 +29,7 @@ class Stake(Base, TimeStamp):
     user = relationship("User", back_populates='owned_stakes', foreign_keys=[user_id])
     invited_user = relationship("User", back_populates='invited_stakes', foreign_keys=[invited_user_id])
     match = relationship("Fixture", back_populates='stakes')
-
+    pool_stake = relationship("PoolStake", back_populates="stake", uselist=False)
 
 
 class PoolStakeStatus(str, enum.Enum):
@@ -85,6 +85,7 @@ class PoolStake(Base, TimeStamp):
     poolstakeentries = relationship("PoolStakeEntry", back_populates="pool_stake")
     match = relationship("Fixture", back_populates="pool_stakes", foreign_keys=[match_id])
     league = relationship("League", back_populates="pool_stakes", foreign_keys=[league_id])
+    stake = relationship("Stake", back_populates="pool_stake")
 
 
 class PoolStakeEntry(Base, TimeStamp):

@@ -18,6 +18,7 @@ class League(TimeStamp, Base):
     fixtures= relationship("Fixture", back_populates="league", foreign_keys="[Fixture.league_id]")
     teams= relationship("Team", back_populates="league", foreign_keys="[Team.league_id]")
     unique_stakes = relationship("UniqueStake", back_populates="league", foreign_keys="[UniqueStake.league_id]")
+    pool_stakes = relationship("PoolStake", back_populates="league", foreign_keys="[PoolStake.league_id]")
 
 class PopularLeague(TimeStamp, Base):
     __tablename__ = "popular_leagues"
