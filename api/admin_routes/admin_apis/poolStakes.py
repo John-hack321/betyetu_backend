@@ -43,7 +43,7 @@ async def populate_db_with_pool_stake_from_current_stakes(db: db_dependancy, wan
             raise HTTPException(status_code=500, detail="Failed to populate pool stakes")
 
     except Exception as e: 
-        logger.error(f"an error occured while admin trying to populate the db with pool stakes: {e}")
+        logger.error(f"an error occured while admin trying to populate the db with pool stakes: {str(e)}", exc_info=True)
 
         raise HTTPException(
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -18,8 +18,8 @@ logging.basicConfig(
 )
 
 router = APIRouter(
-    prefix='/admin/pool_stakes',
-    tags=['admin/pool_stakes']
+    prefix='/pool_stakes',
+    tags=['/pool_stakes']
 )
 
 @router.get("/get_all_pool_stakes")

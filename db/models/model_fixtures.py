@@ -13,7 +13,7 @@ class FixtureStatus(enum.Enum):
 class Fixture(Base, TimeStamp):
     __tablename__ = "fixtures"
 
-    local_id= Column(Integer, nullable=False, primary_key=True)
+    local_id= Column(Integer, nullable=False, primary_key=True) # as we siad we use the local id for everything to keep us safe when data vendors change along the way
     match_id= Column(Integer, nullable=True)
     league_id = Column(Integer, ForeignKey("leagues.local_id"), nullable=False)
     season_id = Column(Integer, ForeignKey("seasons.local_id"), nullable=False)
