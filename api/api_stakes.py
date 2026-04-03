@@ -4,8 +4,6 @@ import logging
 import sys
 import json
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from api.utils.dependancies import db_dependancy, user_dependancy
 from api.utils.util_stakes import get_stake_by_invite_code_from_db
 from pydantic_schemas.stake_schemas import (
