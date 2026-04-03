@@ -29,8 +29,6 @@ class Stake(Base, TimeStamp):
     user = relationship("User", back_populates='owned_stakes', foreign_keys=[user_id])
     invited_user = relationship("User", back_populates='invited_stakes', foreign_keys=[invited_user_id])
     match = relationship("Fixture", back_populates='stakes')
-    pool_stake = relationship("PoolStake", back_populates="stake", uselist=False)
-
 
 class PoolStakeStatus(str, enum.Enum):
     active = "active"
@@ -53,7 +51,6 @@ class PoolStake(Base, TimeStamp):
     id = Column(Integer, primary_key=True, nullable=False, index=True)
     match_id = Column(Integer, ForeignKey("fixtures.local_id"), nullable=True)
     league_id = Column(Integer, ForeignKey("leagues.local_id"), nullable=True)
-    stake_id= Column(Integer, ForeignKey("stakes.id"), nullable=False) # can;t be nullable since these are unique and are tied ot the stakes that are actualy availabe in the system
 
     stake_status = Column(
         Enum(PoolStakeStatus),
@@ -68,7 +65,8 @@ class PoolStake(Base, TimeStamp):
     # resolution
     # resolution_source = Column(String, nullable=True) no need for this since we will be using the outcome to determine the winner
     # to avoid writing alot of code we will just resuse the normal stakes resolution for this , so this stake has to point to the stakes model so that we can pull the outcome data from the actual stake
-    outcome = Column(Enum(PoolStakeChoice), nullable=True) # I think we should do away with this and source outcome data from the stakes model
+
+    outcome = Column(Enum(PoolStakeChoice), nullable=True) # I think we should do away with this and source outcome data from the fixtures modle
 
     # pool tracking — updated on every new entry
     pool_amount = Column(Integer, nullable=False, default=0)
@@ -83,10 +81,8 @@ class PoolStake(Base, TimeStamp):
 
     # relationships
     poolstakeentries = relationship("PoolStakeEntry", back_populates="pool_stake")
-    match = relationship("Fixture", back_populates="pool_stakes", foreign_keys=[match_id])
+    match = relationship("Fixture", back_populates="pool_stake", foreign_keys=[match_id]) # to avoid confussion : this match_id noted here is the one described here on the poolstake , not the one from the actual match object 
     league = relationship("League", back_populates="pool_stakes", foreign_keys=[league_id])
-    stake = relationship("Stake", back_populates="pool_stake")
-
 
 class PoolStakeEntry(Base, TimeStamp):
     __tablename__ = "pool_stake_entries"

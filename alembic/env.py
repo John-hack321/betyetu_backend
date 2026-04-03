@@ -19,8 +19,11 @@ from db.models.model_leagues import League, PopularLeague  # SECOND
 from db.models.model_teams import Team  # THIRD - depends on League and Season
 from db.models.model_fixtures import Fixture  # FOURTH - depends on Season, League, Team
 from db.models.model_users import User, Account, Transaction, Admin
-from db.models.model_stakes import Stake  # Depends on User and Fixture
+from db.models.model_stakes import Stake, PoolStake, PoolStakeEntry  # Depends on User and Fixture
 from db.models.model_players import Player
+from db.models.model_unique_stakes import UniqueStake, UniqueStakeEntry
+
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

@@ -13,7 +13,7 @@ from api.utils.dependancies import db_dependancy
 from db.db_setup import Base, engine, get_db
 from db.db_setup import create_database, drop_database
 from api import api_auth, api_users, api_transactions, api_fixtures, api_leagues, api_stakes
-from api.admin_routes.admin_apis import leagues, fixtures, stakes, seasons, auth, users
+from api.admin_routes.admin_apis import leagues, fixtures, stakes, seasons, auth, users, poolStakes as admin_pool_stakes
 from logging_config import setup_logging
 from services.polling_services.polling_client import schedule_daily_polling, should_start_polling_now, polling_manager
 from services.sockets.socket_services import sio_app
@@ -26,6 +26,8 @@ from db.models.model_players import Player  # Can be anywhere
 from db.models.model_fixtures import Fixture  # FOURTH - depends on Season
 from db.models.model_users import User, Account, Transaction, Admin  # FIFTH
 from db.models.model_stakes import Stake  # LAST - depends on User and Fixture
+from db.models.model_unique_stakes import UniqueStake, UniqueStakeEntry
+from db.models.model_stakes import PoolStake, PoolStakeEntry
 
 
 # Define timezone
@@ -96,7 +98,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.mount('/socket_services', app=sio_app)
 
-app.add_middleware(
+app.add_middleware( # TODO: Dont forget to edit middleware before deployment
     CORSMiddleware,
     allow_origins=['*'],
     allow_credentials=True,
@@ -117,3 +119,4 @@ app.include_router(stakes.router)
 app.include_router(seasons.router)
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(admin_pool_stakes.router)

@@ -1,5 +1,4 @@
 from datetime import datetime, timezone, timedelta
-from sys import exc_info
 
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from db.db_setup import Base
