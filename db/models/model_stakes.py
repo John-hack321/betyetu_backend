@@ -98,7 +98,6 @@ class PoolStakeEntry(Base, TimeStamp):
     placement = Column(Enum(PoolStakeChoice), nullable=False)
     amount = Column(Integer, nullable=False)
     payout_amount = Column(Integer, nullable=True)  # written at resolution
-    possible_win = Column(Integer, nullable=True)  # I need to this to change with every entry onto the stake
 
     # relationships
     pool_stake = relationship("PoolStake", back_populates="poolstakeentries")

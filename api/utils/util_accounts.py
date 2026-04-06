@@ -67,7 +67,7 @@ async def subtract_stake_amount_from_db(db: AsyncSession, user_id: int, stake_am
         query= select(Account).where(Account.user_id == user_id)
         result= await db.execute(query)
         db_object= result.scalars().first()
-        db_object.balance= db_object.balance- stake_amount
+        db_object.balance= db_object.balance - stake_amount
         print(f"the stake balance has been subtracted and the new stake balance is {db_object.balance}")
         await db.commit()
         await db.refresh(db_object)
@@ -85,4 +85,30 @@ async def subtract_stake_amount_from_db(db: AsyncSession, user_id: int, stake_am
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while subtracting stake amount from db"
+        )
+
+async def check_if_user_balance_is_enough(db: AsyncSession, user_id: int, user_stake_amount: int):
+    try:
+        user_account_data = await get_account_data_by_user_id(user_id, db)
+        
+        if user_account_data.balance < user_stake_amount:
+            logger.warning(f"User {user_id} has insufficient balance: {user_account_data.balance} < {user_stake_amount}")
+            
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Insufficient account balance for this stake"
+            )
+        
+        return # we return if it passes
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (like our insufficient balance error)
+        raise
+        
+    except Exception as e:
+        logger.error(f"An error occurred while checking if account balance is enough: {str(e)}")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while checking account balance"
         )

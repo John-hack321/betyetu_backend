@@ -82,7 +82,9 @@ async def db_get_all_pool_stakes(db: AsyncSession, page: int= 1, limit: int= 100
         total_stakes= total_stakes.scalar()
 
         offset = (page - 1) * limit
-        query= select(PoolStake).where(PoolStake.locks_at >= match_cutoff_time).offset(offset).limit(limit)
+        query= select(PoolStake).where(
+            PoolStake.locks_at >= match_cutoff_time
+        ).offset(offset).limit(limit).order_by(PoolStake.locks_at.asc())
         pool_stakes= await db.execute(query)
         pool_stakes= pool_stakes.scalars().all()
 
