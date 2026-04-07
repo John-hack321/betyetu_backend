@@ -12,8 +12,8 @@ import sys
 from api.utils.dependancies import db_dependancy
 from db.db_setup import Base, engine, get_db
 from db.db_setup import create_database, drop_database
-from api import api_auth, api_users, api_transactions, api_fixtures, api_leagues, api_stakes, api_pool_stakes, api_unique_stakes
-from api.admin_routes.admin_apis import leagues, fixtures, stakes, seasons, auth, users, poolStakes as admin_pool_stakes
+from api import api_auth, api_users, api_transactions, api_fixtures, api_leagues, api_stakes, api_pool_stakes, api_unique_stakes, api_prediction_market
+from api.admin_routes.admin_apis import leagues, fixtures, stakes, seasons, auth, users, poolStakes as admin_pool_stakes, prediction_market
 from logging_config import setup_logging
 from services.polling_services.polling_client import schedule_daily_polling, should_start_polling_now, polling_manager
 from services.sockets.socket_services import sio_app
@@ -28,6 +28,7 @@ from db.models.model_users import User, Account, Transaction, Admin  # FIFTH
 from db.models.model_stakes import Stake  # LAST - depends on User and Fixture
 from db.models.model_unique_stakes import UniqueStake, UniqueStakeEntry
 from db.models.model_stakes import PoolStake, PoolStakeEntry
+from db.models.model_prediction_market import PredictionMarket, PredictionMarketPosition, PredictionMarketTrade
 
 
 # Define timezone
@@ -121,4 +122,5 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(admin_pool_stakes.router)
 app.include_router(api_pool_stakes.router)
-# app.include_router(api_unique_stakes.router)
+app.include_router(api_prediction_market.router)
+app.include_router(prediction_market.admin_router)
