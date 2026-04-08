@@ -32,7 +32,6 @@ admin_router = APIRouter(
     tags=["admin/prediction_markets"],
 )
 
-
 @admin_router.post("/create")
 async def admin_create_market(
     payload: AdminCreateMarketPayload,
@@ -43,14 +42,18 @@ async def admin_create_market(
         import math as _math
         reserve = payload.b * _math.log(2)
 
+        # Strip timezone info before storing — DB uses TIMESTAMP WITHOUT TIME ZONE
+        locks_at = payload.locks_at.replace(tzinfo=None) if payload.locks_at else None
+        resolution_date = payload.resolution_date.replace(tzinfo=None) if payload.resolution_date else None
+
         new_market = PredictionMarket(
             creator_id=None,
             question=payload.question,
             description=payload.description,
             category=payload.category,
             resolution_source=payload.resolution_source,
-            locks_at=payload.locks_at,
-            resolution_date=payload.resolution_date,
+            locks_at=locks_at,
+            resolution_date=resolution_date,
             market_status=(
                 PredictionMarketStatus.active
                 if payload.go_live_immediately
@@ -63,7 +66,6 @@ async def admin_create_market(
             house_reserve=reserve,
         )
 
-        # I know , I will create a utils files for the prediction markets for now just work with this.
         db.add(new_market)
         await db.commit()
         await db.refresh(new_market)
@@ -82,7 +84,6 @@ async def admin_create_market(
         await db.rollback()
         logger.error(f"Admin create market failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to create market")
-
 
 @admin_router.post("/approve")
 async def admin_approve_market(

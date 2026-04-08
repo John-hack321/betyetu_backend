@@ -357,27 +357,26 @@ async def sell_shares(
         logger.error(f"Sell failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Trade failed, please try again")
 
-
 @router.post("/propose")
 async def propose_market(
     payload: CreateMarketPayload,
     db: db_dependancy,
     user: user_dependancy,
 ):
-    """
-    User proposes a market.  Goes into pending_approval — admin must approve.
-    """
     try:
+        locks_at = payload.locks_at.replace(tzinfo=None) if payload.locks_at else None
+        resolution_date = payload.resolution_date.replace(tzinfo=None) if payload.resolution_date else None
+
         new_market = PredictionMarket(
             creator_id=user.get("user_id"),
             question=payload.question,
             description=payload.description,
             category=payload.category,
             resolution_source=payload.resolution_source,
-            locks_at=payload.locks_at,
-            resolution_date=payload.resolution_date,
+            locks_at=locks_at,
+            resolution_date=resolution_date,
             market_status=PredictionMarketStatus.pending_approval,
-            b=1000.0,  # default b; admin can change when approving
+            b=1000.0,
             q_yes=0.0,
             q_no=0.0,
             total_collected=0.0,
@@ -399,7 +398,6 @@ async def propose_market(
         await db.rollback()
         logger.error(f"Market proposal failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to submit market proposal")
-
 
 @router.get("/my/positions")
 async def get_my_positions(
