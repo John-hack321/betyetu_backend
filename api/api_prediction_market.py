@@ -101,6 +101,10 @@ async def get_active_markets(
                 "outcome": m.outcome.value if m.outcome else None,
             })
 
+        # debug log
+        for i in range(len(markets_with_prices)):
+            print(f"Market {i}: {markets_with_prices[i]}")
+
         return {
             "page": page,
             "limit": limit,

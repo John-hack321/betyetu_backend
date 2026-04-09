@@ -56,7 +56,6 @@ def cost_function(q_yes: float, q_no: float, b: float) -> float:
 
 
 # Price / probability functions 
-
 def yes_price(q_yes: float, q_no: float, b: float) -> float:
     """
     P(yes) = e^(q_yes/b) / (e^(q_yes/b) + e^(q_no/b))
@@ -80,7 +79,7 @@ def no_price(q_yes: float, q_no: float, b: float) -> float:
 
 # we build this for convenience to get both prices at once
 def get_prices(q_yes: float, q_no: float, b: float) -> dict:
-    """Convenience — return both prices at once."""
+    """for convenience — return both prices at once."""
     p_yes = yes_price(q_yes, q_no, b)
     return {"yes": round(p_yes, 6), "no": round(1.0 - p_yes, 6)}
 
