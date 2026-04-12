@@ -25,7 +25,7 @@ ADMIN_REFRESH_ALGORITHM= os.getenv('ADMIN_REFRESH_ALGORITHM')
 # here I am going to implement a few things whose function I still dont know but lets just go with it 
 # these i think Im made to believe that they are important lines when it comes to the auth things in fastapi 
 
-db_dependancy = Annotated[ AsyncSession , Depends(get_db)] # this is just similar to doing : db : AsyncSession = Depends(get_db) what this does is that it gives a shortcut for injecting a database sessoin : i guess into our utility functions 
+db_dependancy = Annotated[ Session , Depends(get_db)] # this is just similar to doing : db : Session = Depends(get_db) what this does is that it gives a shortcut for injecting a database sessoin : i guess into our utility functions 
 bcrypt_context = CryptContext( schemes = ['bcrypt'] , deprecated = 'auto') # this is like our password fortress it allows us to hash and verify plain text agains hashed passwords 
 oauth2_bearer = OAuth2PasswordBearer( tokenUrl = "/auth/token") # tells fastapi where to extrect the token 
 oauth2_bearer_dependancy = Annotated[str , Depends(oauth2_bearer)]
