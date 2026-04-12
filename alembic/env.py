@@ -22,7 +22,7 @@ from db.models.model_users import User, Account, Transaction, Admin
 from db.models.model_stakes import Stake, PoolStake, PoolStakeEntry  # Depends on User and Fixture
 from db.models.model_players import Player
 from db.models.model_unique_stakes import UniqueStake, UniqueStakeEntry
-from db.models.model_prediction_market import PredictionMarketTrade, PredictionMarketPosition, PredictionMarket
+from db.models.model_prediction_market import PredictionMarketGroup, PredictionMarketTrade, PredictionMarketPosition, PredictionMarket
 
 
 # this is the Alembic Config object, which provides

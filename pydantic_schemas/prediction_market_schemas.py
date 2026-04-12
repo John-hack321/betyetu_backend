@@ -124,3 +124,14 @@ class TradeConfirmationResponse(BaseModel):
     yes_price_after: float
     no_price_after: float
     new_account_balance: float
+
+class AdminCreateGroupMarketPayload(BaseModel):
+    group_market_question: str
+    group_market_description: str
+    locks_at: datetime
+    resolution_date: datetime
+    resolution_source: str
+    submarket_entries: list[str]
+    b: float = Field(default=1000.0, ge=100.0, le=1_000_000.0)
+    category: str
+    go_live_immediately: bool = False

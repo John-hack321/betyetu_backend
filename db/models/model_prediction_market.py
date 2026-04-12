@@ -1,7 +1,7 @@
 import enum
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, ForeignKey,
-    Enum as SAEnum, Boolean, Text
+    Enum as SAEnum, Boolean, Text, column
 )
 
 from sqlalchemy.orm import relationship
@@ -36,6 +36,25 @@ class PredictionPositionStatus(str, enum.Enum):
 
 # Models 
 
+# we need this one for grouping of pred markets
+class PredictionMarketGroup(Base, TimeStamp):
+    __tablename__ = "prediction_market_groups"
+    
+    id = Column(Integer, primary_key=True, nullable=False, index=True)
+    question = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    featured = Column(Boolean, nullable=False, default=False) # to allow for easier handling of the data i the frontend
+    resolved = Column(Boolean, nullable=False, default=False) # to know if the binary sub markets have already been fully closed
+
+    # this will be updated everytime a user buys / sells on the binary sub markets involved
+    total_collected = Column(Float, nullable=False, default=0.0) # to track the total amount collected from users onto the binary sub markets
+    locks_at = Column(DateTime, nullable=False) # when the market locks for trading
+    resolution_date = Column(DateTime, nullable=False) # when the market resolves
+    resolution_source = Column(String, nullable=False) # where the resolution came from (e.g. "official", "user_reported", etc.)
+
+    # relationships
+    markets = relationship("PredictionMarket", back_populates="market_group")
+
 class PredictionMarket(Base, TimeStamp):
     """  I thought I'd leave these explanations here so that anyone reading this codebase wouldn;t be confused
     The core market object.
@@ -53,13 +72,14 @@ class PredictionMarket(Base, TimeStamp):
     __tablename__ = "prediction_markets"
 
     id = Column(Integer, primary_key=True, nullable=False, index=True)
+    market_group_id = Column(Integer, ForeignKey("prediction_market_groups.id"), nullable=True) # nullable since not all markets will belong to a group
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=True) # who proposed the mkt ( admin or a user ) , for admin this fild is null
     question = Column(String, nullable=False) # the qn the mkt is about
     description = Column(Text, nullable=True) # a longer descriptoin of the mkt but this is optional.
     category = Column(String, nullable=True) # eg. sports and I think we should make it an enum as early as possible: for now its just a string
 
     # LMSR state 
-    b = Column(Float, nullable=False, default=1000.0) # constrols the volatility of the market
+    b = Column(Float, nullable=False, default=1000.0) # constrols the volatility of the market, the smaller the b the higher the volatility
 
     # Total shares issued on each side. Start at 0.
     q_yes = Column(Float, nullable=False, default=0.0)
@@ -95,10 +115,12 @@ class PredictionMarket(Base, TimeStamp):
 
     # Admin notes shown only to creator (e.g. why market was rejected)
     admin_notes = Column(Text, nullable=True)
+    featured = Column(Boolean, default=False, nullable= True) # for now we need the nullability since we already have tables created in the system
 
     creator  = relationship("User", foreign_keys=[creator_id])
     trades   = relationship("PredictionMarketTrade", back_populates="market")
     positions = relationship("PredictionMarketPosition", back_populates="market")
+    market_group = relationship("PredictionMarketGroup", foreign_keys=[market_group_id])
 
 
 class PredictionMarketPosition(Base, TimeStamp):

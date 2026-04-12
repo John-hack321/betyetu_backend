@@ -28,7 +28,7 @@ from db.models.model_users import User, Account, Transaction, Admin  # FIFTH
 from db.models.model_stakes import Stake  # LAST - depends on User and Fixture
 from db.models.model_unique_stakes import UniqueStake, UniqueStakeEntry
 from db.models.model_stakes import PoolStake, PoolStakeEntry
-from db.models.model_prediction_market import PredictionMarket, PredictionMarketPosition, PredictionMarketTrade
+from db.models.model_prediction_market import PredictionMarketGroup, PredictionMarket, PredictionMarketPosition, PredictionMarketTrade
 
 
 # Define timezone
