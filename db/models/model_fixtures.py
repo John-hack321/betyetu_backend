@@ -28,9 +28,12 @@ class Fixture(Base, TimeStamp):
     away_score= Column(Integer, default=0)
     fixture_status= Column(Enum(FixtureStatus), default=FixtureStatus.future)
     winner= Column(String, nullable=True)
+    prediction_market_created = Column(Boolean, default=False, nullable=True) # for now we need this to allow nullability for the sake of the matches that were already present and to prevent migration challanges
 
     league= relationship("League", back_populates="fixtures", foreign_keys=[league_id])
     stakes = relationship("Stake", back_populates="match", foreign_keys="[Stake.match_id]")
     season= relationship("Season", back_populates="fixtures", foreign_keys=[season_id])
     unique_stakes = relationship("UniqueStake", back_populates="match", foreign_keys="[UniqueStake.match_id]")
     pool_stake = relationship("PoolStake", back_populates="match", foreign_keys="[PoolStake.match_id]")
+
+    # im not sure for now whether this connection is necesary but we just hav to keep it in mind
