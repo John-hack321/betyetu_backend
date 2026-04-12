@@ -135,3 +135,12 @@ class AdminCreateGroupMarketPayload(BaseModel):
     b: float = Field(default=1000.0, ge=100.0, le=1_000_000.0)
     category: str
     go_live_immediately: bool = False
+
+class AdminCreateFixturePredictionMarket(BaseModel):
+    fixture_id: int
+    locks_at: datetime
+    resolution_date: datetime
+    resolution_source: str
+    b: float = Field(default=1000.0, ge=100.0, le=1_000_000.0)
+    category: str
+    go_live_immediately: bool = False

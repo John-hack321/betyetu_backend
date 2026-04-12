@@ -23,6 +23,7 @@ from db.models.model_stakes import Stake, PoolStake, PoolStakeEntry  # Depends o
 from db.models.model_players import Player
 from db.models.model_unique_stakes import UniqueStake, UniqueStakeEntry
 from db.models.model_prediction_market import PredictionMarketGroup, PredictionMarketTrade, PredictionMarketPosition, PredictionMarket
+from db.models.model_match_markets import FixtureBasedMarket, FixtureBasedMarketPosition, FixtureBasedMarketTrade
 
 
 # this is the Alembic Config object, which provides

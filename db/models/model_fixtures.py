@@ -35,5 +35,4 @@ class Fixture(Base, TimeStamp):
     season= relationship("Season", back_populates="fixtures", foreign_keys=[season_id])
     unique_stakes = relationship("UniqueStake", back_populates="match", foreign_keys="[UniqueStake.match_id]")
     pool_stake = relationship("PoolStake", back_populates="match", foreign_keys="[PoolStake.match_id]")
-
-    # im not sure for now whether this connection is necesary but we just hav to keep it in mind
+    fixture_based_market = relationship("FixtureBasedMarket", back_populates="fixture", uselist=False)

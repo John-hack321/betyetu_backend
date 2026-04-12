@@ -2,16 +2,19 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from api.utils.dependancies import db_dependancy
+from db.models.model_match_markets import FixtureBasedMarket
 from db.models.model_prediction_market import PredictionMarket
 from db.models.model_prediction_market import PredictionMarketStatus
 from db.models.model_prediction_market import PredictionMarketGroup
+from db.models.model_fixtures import Fixture
 
 from services.market_Logic.trade_service import process_market_resolution
 from pydantic_schemas.prediction_market_schemas import (
     AdminCreateMarketPayload,
     AdminApproveMarketPayload,
     AdminResolveMarketPayload,
-    AdminCreateGroupMarketPayload
+    AdminCreateGroupMarketPayload,
+    AdminCreateFixturePredictionMarket
 )
 
 import logging
@@ -290,4 +293,50 @@ async def admin_create_group_market(
         raise HTTPException(
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail= f"admin create gropu market failed: {str(e)}"
+        )
+
+@admin_router.post("/create_fixture_prediction_market")
+async def admin_create_fixture_prediction_market(
+    db: db_dependancy,
+    payload: AdminCreateFixturePredictionMarket
+):
+    try:
+        locks_at = payload.locks_at.replace(tzinfo=None) if payload.locks_at else None
+        resolution_date = payload.resolution_date.replace(tzinfo=None) if payload.resolution_date else None
+        reserve = payload.b * _math.log(3) # three way 
+        
+        match_data = await db.execute(select(Fixture).where(Fixture.local_id == payload.fixture_id))
+        match = match_data.scalar_one_or_none()
+        if not match:
+            raise HTTPException(
+                status_code= status.HTTP_404_NOT_FOUND,
+                detail= "Fixture not found"
+            )
+
+        new_match_prediction_market = FixtureBasedMarket(
+            fixture_id= payload.fixture_id,
+            question= f"{match.home_team} vs {match.away_team}",
+            description= f"Predict the outcome of {match.home_team} vs {match.away_team}",
+            category= payload.category,
+            b= payload.b,
+            locks_at= locks_at,
+            resolution_date= resolution_date,
+            resolution_source= payload.resolution_source,
+            house_reserve= reserve
+        )
+
+        await db.add(new_match_prediction_market)
+        await db.commit()
+        await db.refresh(new_match_prediction_market)
+
+        return {"message": "Fixture market created successfully", "Fixture market id": new_match_prediction_market.id}
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"admin create fixture prediction market failed: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail= f"admin create fixture prediction market failed: {str(e)}"
         )

@@ -1,58 +1,8 @@
-time formatiing ( timezones and stuff ):
+important notes about the system currently: 
 
+1) I need a way we can make the default timezone for the system to be the nairobi timezone so that it can always work well.
+    -currently what we do is we strip the timezone info before stoarag mostly for the pred mkt creation endpoints.
 
-hello claude so I want us to build the ui for the prediction market part of this application okay . 
+2) don't forget to get into the nitty grities of how the money works like everytim we create a market we will have to subtract the reserve from the system balance
 
-so I need this to be as defined as possible okay so here are my specifications : 
-
-
-
-so I want this prediction market page to be a bit unique on its own okay , well I need it to use our system accent colors but I need it to be unque in terms of a few features okay , so first of all about the general ui , I dont want it to have those the left and the right side bars like on the other fixture related genral pages right ? 
-
-so I need this pred mkt page to be unique in the sense that I want it to look more like polymarket and kalshi but with our accent colors okay I think our footer / nav bar at the bottom still remains the same I think maybe you might wanna add another button for a differet page based on how you see it but thats up to you okay  cause for me I was thinking like all of this logic will live on the dashboard page and if you wanna rename the page and icon to something else to match the design then its also okay . 
-
-
-
-so I want us to take inspiration from both kalshi and polymarket , 
-
-so on the big desktop screen I would realy like if the page looked like polymarket , so that we have a big  part one that shows suggested top markets then down here we have the other ones just like the polymarket ui looks like but as you konw ours wil be a bit distinct with our ui colors and also based on things our system can support about the market too , okay . 
-
-
-
-we will also do graphs just like they have been done on polymarket and kalshi ( just do it even if you will use a package / library for making the charts then well and good ) but make sure it looks good okay . 
-
-just like on kalshi and polymarket the big suggestion at the top should also show the chart to on the side too . and this is o the big screen okay . 
-
-
-
-and just as I said on the big screen we will do just like polumarket has done it right . but no on the moble like screen , when you look at kalshi they have a big suggesino at the top too for the small screens too. so I need the same for the small screen on this mine and now the other parst just remain like the ones on polymarket . 
-
-
-
-another thing , on polymarket there are two lines of filters and on kalshi only one at the top . so I want the same to be applied for this mine here like we have only one filter line at the top okay . but the other parts now should just look like polymarkets okay 
-
-
-
-so I think those are my desing constrains , so since we said that on the big screen we wont have the side bar and they are the ones that hold the nave I think you should put a button that takes someone back to the matches main page okay . 
-
-
-
-
-
-so for now I want us to build the pages taht are related to viewing the market , seeing all markets and joining a market and placing money  . 
-
-so for now do that okay and lets see where we can take this . 
-
-
-
-I think the design of the header also maintiains the login , and name too  you will thiink abut how you will do the menu icon okay . 
-
-
-
-so start building the ui and functionality now , and dont ask me any question whenever you come around an indecision just pick the most optimal and go . 
-
-and please abut the graphs just make sure they are good. 
-
-
-
-and imagine that youare sineor swe , ui ux dev and frontend dev .so do this . just start now , write all the relevant code thats nedded to intrect with that backend code for the user facing pred endpoints start now , and as we said we will build the proposals part later now just focus on markets , and joining of markets and vewing of them  build it all for data you can also use redux just as it is being used if you want , start now
+3) I changed the dependancy injection on my db setup from session to async sesson so incse anything breaks reference that okay
