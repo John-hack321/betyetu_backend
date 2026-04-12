@@ -6,19 +6,13 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from db.db_setup import Base
 from db.models.mixins import TimeStamp
+from db.models.model_prediction_market import PredictionMarketStatus
 
 # NOTE: all the api endpoints relating to this model have all been defined on the general prediction market endpoint
 
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
-class FixtureBasedMarketStatus(str, enum.Enum):
-    pending_approval = "pending_approval"   # user submitted, waiting for admin
-    active           = "active"             # trading is open
-    locked           = "locked"             # trading closed, awaiting resolution
-    resolved         = "resolved"           # admin has set the outcome
-    rejected         = "rejected"           # admin rejected the proposal
-    cancelled        = "cancelled"          # cancelled before any trades
 
 
 class FixtureBasedMarketOutcome(str, enum.Enum):
@@ -78,7 +72,7 @@ class FixtureBasedMarket(Base, TimeStamp):
     category = Column(String, nullable=True)    # e.g. will aways be sports , we will implement further sorting later on
 
     # LMSR state — all three quantities start at 0
-    b      = Column(Float, nullable=False, default=1000.0)
+    b = Column(Float, nullable=False, default=1000.0)
     q_home = Column(Float, nullable=False, default=0.0)
     q_draw = Column(Float, nullable=False, default=0.0)
     q_away = Column(Float, nullable=False, default=0.0)
@@ -89,12 +83,12 @@ class FixtureBasedMarket(Base, TimeStamp):
 
     # Lifecycle
     market_status = Column(
-        SAEnum(FixtureBasedMarketStatus),
+        SAEnum(PredictionMarketStatus),
         nullable=False,
-        default=FixtureBasedMarketStatus.pending_approval,
+        default=PredictionMarketStatus.pending_approval,
     )
     locks_at = Column(DateTime, nullable=True)  # when trading closes
-    resolution_date   = Column(DateTime, nullable=True)  # informational only
+    resolution_date = Column(DateTime, nullable=True)  # informational only
     resolution_source = Column(String,   nullable=True)  # e.g. "BBC Sport", "official"
 
     # Resolution — written by admin

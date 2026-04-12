@@ -325,7 +325,7 @@ async def admin_create_fixture_prediction_market(
             house_reserve= reserve
         )
 
-        await db.add(new_match_prediction_market)
+        db.add(new_match_prediction_market)
         await db.commit()
         await db.refresh(new_match_prediction_market)
 

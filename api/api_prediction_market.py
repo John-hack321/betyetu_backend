@@ -4,7 +4,7 @@ from typing import List
 import sys
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select, func
+from sqlalchemy import select, func, union_all, literal, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.utils.dependancies import db_dependancy, user_dependancy
@@ -39,12 +39,254 @@ from services.market_Logic.trade_service  import (
     process_sell,
 )
 
+
+from db.models.model_match_markets import FixtureBasedMarket
+from db.models.model_prediction_market import (
+    PredictionMarket, PredictionMarketGroup, PredictionMarketStatus
+)
+from db.models.model_fixtures import Fixture
+from services.market_Logic.LMSR_3WAY import get_prices_3
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/prediction_markets",
     tags=["prediction_markets"],
 )
+
+
+@router.get("/all_markets")
+async def get_all_active_markets(
+    db: db_dependancy,
+    user: user_dependancy,
+    page: int = 1,
+    limit: int = 100,
+    category: str = None,
+):
+    """
+    Unified endpoint returning prediction markets, fixture markets, and group markets
+    in a single sorted paginated response.
+
+    market_type values:
+        "prediction"  => binary yes/no market
+        "fixture"     => home/draw/away football market
+        "group"       => group container with sub-markets attached
+    """
+    try:
+        offset = (page - 1) * limit
+
+        # ── Leg 1: Standard prediction markets (NOT part of a group) ─────────
+        prediction_leg = select(
+            PredictionMarket.id.label("id"),
+            literal("prediction").label("market_type"),
+            PredictionMarket.question.label("question"),
+            PredictionMarket.description.label("description"),
+            PredictionMarket.category.label("category"),
+            PredictionMarket.created_at.label("created_at"),
+            PredictionMarket.locks_at.label("locks_at"),
+            PredictionMarket.resolution_date.label("resolution_date"),
+            PredictionMarket.resolution_source.label("resolution_source"),
+            PredictionMarket.market_status.label("market_status"),
+            PredictionMarket.total_collected.label("total_collected"),
+            PredictionMarket.house_reserve.label("house_reserve"),
+            PredictionMarket.b.label("b"),
+            PredictionMarket.featured.label("featured"),
+            PredictionMarket.creator_id.label("creator_id"),
+            PredictionMarket.market_group_id.label("market_group_id"),
+            # binary price fields
+            PredictionMarket.q_yes.label("q_yes"),
+            PredictionMarket.q_no.label("q_no"),
+            # fixture-only fields — null here
+            literal(None).label("q_home"),
+            literal(None).label("q_draw"),
+            literal(None).label("q_away"),
+            literal(None).label("fixture_id"),
+            literal(None).label("home_team"),
+            literal(None).label("away_team"),
+            # group-only fields — null here
+            literal(None).label("resolved"),
+        ).where(
+            PredictionMarket.market_status == PredictionMarketStatus.active,
+            PredictionMarket.market_group_id.is_(None),  # exclude sub-markets
+        )
+
+        if category:
+            prediction_leg = prediction_leg.where(PredictionMarket.category == category)
+
+        # ── Leg 2: Fixture based markets ─────────────────────────────────────
+        fixture_leg = select(
+            FixtureBasedMarket.id.label("id"),
+            literal("fixture").label("market_type"),
+            FixtureBasedMarket.question.label("question"),
+            FixtureBasedMarket.description.label("description"),
+            FixtureBasedMarket.category.label("category"),
+            FixtureBasedMarket.created_at.label("created_at"),
+            FixtureBasedMarket.locks_at.label("locks_at"),
+            FixtureBasedMarket.resolution_date.label("resolution_date"),
+            FixtureBasedMarket.resolution_source.label("resolution_source"),
+            FixtureBasedMarket.market_status.label("market_status"),
+            FixtureBasedMarket.total_collected.label("total_collected"),
+            FixtureBasedMarket.house_reserve.label("house_reserve"),
+            FixtureBasedMarket.b.label("b"),
+            FixtureBasedMarket.featured.label("featured"),
+            FixtureBasedMarket.creator_id.label("creator_id"),
+            literal(None).label("market_group_id"),
+            # binary price fields — null here
+            literal(None).label("q_yes"),
+            literal(None).label("q_no"),
+            # fixture-specific
+            FixtureBasedMarket.q_home.label("q_home"),
+            FixtureBasedMarket.q_draw.label("q_draw"),
+            FixtureBasedMarket.q_away.label("q_away"),
+            FixtureBasedMarket.fixture_id.label("fixture_id"),
+            Fixture.home_team.label("home_team"),
+            Fixture.away_team.label("away_team"),
+            # group-only fields — null here
+            literal(None).label("resolved"),
+        ).join(
+            Fixture, FixtureBasedMarket.fixture_id == Fixture.local_id
+        ).where(
+            FixtureBasedMarket.market_status == PredictionMarketStatus.active,
+        )
+
+        if category:
+            fixture_leg = fixture_leg.where(FixtureBasedMarket.category == category)
+
+        # ── Leg 3: Group markets ──────────────────────────────────────────────
+        group_leg = select(
+            PredictionMarketGroup.id.label("id"),
+            literal("group").label("market_type"),
+            PredictionMarketGroup.question.label("question"),
+            PredictionMarketGroup.description.label("description"),
+            literal(None).label("category"),
+            PredictionMarketGroup.created_at.label("created_at"),
+            PredictionMarketGroup.locks_at.label("locks_at"),
+            PredictionMarketGroup.resolution_date.label("resolution_date"),
+            PredictionMarketGroup.resolution_source.label("resolution_source"),
+            literal(None).label("market_status"),
+            PredictionMarketGroup.total_collected.label("total_collected"),
+            literal(None).label("house_reserve"),
+            literal(None).label("b"),
+            PredictionMarketGroup.featured.label("featured"),
+            literal(None).label("creator_id"),
+            literal(None).label("market_group_id"),
+            # all price fields — null for groups
+            literal(None).label("q_yes"),
+            literal(None).label("q_no"),
+            literal(None).label("q_home"),
+            literal(None).label("q_draw"),
+            literal(None).label("q_away"),
+            literal(None).label("fixture_id"),
+            literal(None).label("home_team"),
+            literal(None).label("away_team"),
+            PredictionMarketGroup.resolved.label("resolved"),
+        ).where(
+            PredictionMarketGroup.resolved == False,
+        )
+
+        # ── UNION and paginate ────────────────────────────────────────────────
+        union_q = union_all(prediction_leg, fixture_leg, group_leg).subquery()
+
+        total = await db.scalar(
+            select(func.count()).select_from(union_q)
+        )
+
+        result = await db.execute(
+            select(union_q)
+            .order_by(union_q.c.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        rows = result.mappings().all()
+
+        # ── Attach sub-markets to group rows (single extra query) ─────────────
+        group_ids = [r["id"] for r in rows if r["market_type"] == "group"]
+        sub_markets_by_group: dict[int, list] = {}
+
+        if group_ids:
+            sub_result = await db.execute(
+                select(PredictionMarket).where(
+                    PredictionMarket.market_group_id.in_(group_ids),
+                    PredictionMarket.market_status == PredictionMarketStatus.active,
+                )
+            )
+            sub_markets = sub_result.scalars().all()
+
+            for sm in sub_markets:
+                p_yes = yes_price(sm.q_yes, sm.q_no, sm.b)
+                entry = {
+                    "id": sm.id,
+                    "question": sm.question,
+                    "market_status": sm.market_status.value,
+                    "yes_price": round(p_yes, 4),
+                    "no_price": round(1.0 - p_yes, 4),
+                    "total_collected": sm.total_collected,
+                    "locks_at": sm.locks_at,
+                }
+                sub_markets_by_group.setdefault(sm.market_group_id, []).append(entry)
+
+        # ── Shape the final response ──────────────────────────────────────────
+        data = []
+        for r in rows:
+            item = {
+                "id": r["id"],
+                "market_type": r["market_type"],
+                "question": r["question"],
+                "description": r["description"],
+                "created_at": r["created_at"],
+                "locks_at": r["locks_at"],
+                "resolution_date": r["resolution_date"],
+                "resolution_source": r["resolution_source"],
+                "total_collected": r["total_collected"],
+                "featured": r["featured"],
+                "category": r["category"],
+            }
+
+            if r["market_type"] == "prediction":
+                p_yes = yes_price(r["q_yes"], r["q_no"], r["b"])
+                item.update({
+                    "market_status": r["market_status"],
+                    "yes_price": round(p_yes, 4),
+                    "no_price": round(1.0 - p_yes, 4),
+                    "b": r["b"],
+                })
+
+            elif r["market_type"] == "fixture":
+                prices = get_prices_3(r["q_home"], r["q_draw"], r["q_away"], r["b"])
+                item.update({
+                    "market_status": r["market_status"],
+                    "home_team": r["home_team"],
+                    "away_team": r["away_team"],
+                    "fixture_id": r["fixture_id"],
+                    "home_price": prices["home"],
+                    "draw_price": prices["draw"],
+                    "away_price": prices["away"],
+                    "b": r["b"],
+                })
+
+            elif r["market_type"] == "group":
+                item.update({
+                    "resolved": r["resolved"],
+                    "sub_markets": sub_markets_by_group.get(r["id"], []),
+                })
+
+            data.append(item)
+
+        return {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "total_pages": math.ceil(total / limit) if total else 0,
+            "has_next_page": (page * limit) < total,
+            "data": data,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching all markets: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch markets")
+
 
 
 @router.get("/")
