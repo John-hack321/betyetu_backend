@@ -5,6 +5,7 @@ import sys
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, func, union_all, literal, text
+import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.utils.dependancies import db_dependancy, user_dependancy
@@ -97,14 +98,14 @@ async def get_all_active_markets(
             PredictionMarket.q_yes.label("q_yes"),
             PredictionMarket.q_no.label("q_no"),
             # fixture-only fields — null here
-            literal(None).label("q_home"),
-            literal(None).label("q_draw"),
-            literal(None).label("q_away"),
-            literal(None).label("fixture_id"),
-            literal(None).label("home_team"),
-            literal(None).label("away_team"),
+            literal(None, type_=sa.Float).label("q_home"),
+            literal(None, type_=sa.Float).label("q_draw"),
+            literal(None, type_=sa.Float).label("q_away"),
+            literal(None, type_=sa.Integer).label("fixture_id"),
+            literal(None, type_=sa.String).label("home_team"),
+            literal(None, type_=sa.String).label("away_team"),
             # group-only fields — null here
-            literal(None).label("resolved"),
+            literal(None, type_=sa.Boolean).label("resolved"),
         ).where(
             PredictionMarket.market_status == PredictionMarketStatus.active,
             PredictionMarket.market_group_id.is_(None),  # exclude sub-markets
@@ -130,10 +131,10 @@ async def get_all_active_markets(
             FixtureBasedMarket.b.label("b"),
             FixtureBasedMarket.featured.label("featured"),
             FixtureBasedMarket.creator_id.label("creator_id"),
-            literal(None).label("market_group_id"),
+            literal(None, type_=sa.Integer).label("market_group_id"),
             # binary price fields — null here
-            literal(None).label("q_yes"),
-            literal(None).label("q_no"),
+            literal(None, type_=sa.Float).label("q_yes"),
+            literal(None, type_=sa.Float).label("q_no"),
             # fixture-specific
             FixtureBasedMarket.q_home.label("q_home"),
             FixtureBasedMarket.q_draw.label("q_draw"),
@@ -142,7 +143,7 @@ async def get_all_active_markets(
             Fixture.home_team.label("home_team"),
             Fixture.away_team.label("away_team"),
             # group-only fields — null here
-            literal(None).label("resolved"),
+            literal(None, type_=sa.Boolean).label("resolved"),
         ).join(
             Fixture, FixtureBasedMarket.fixture_id == Fixture.local_id
         ).where(
@@ -158,27 +159,27 @@ async def get_all_active_markets(
             literal("group").label("market_type"),
             PredictionMarketGroup.question.label("question"),
             PredictionMarketGroup.description.label("description"),
-            literal(None).label("category"),
+            literal(None, type_=sa.String).label("category"),
             PredictionMarketGroup.created_at.label("created_at"),
             PredictionMarketGroup.locks_at.label("locks_at"),
             PredictionMarketGroup.resolution_date.label("resolution_date"),
             PredictionMarketGroup.resolution_source.label("resolution_source"),
-            literal(None).label("market_status"),
+            literal(None, type_=sa.Enum(PredictionMarketStatus)).label("market_status"),
             PredictionMarketGroup.total_collected.label("total_collected"),
-            literal(None).label("house_reserve"),
-            literal(None).label("b"),
+            literal(None, type_=sa.Float).label("house_reserve"),
+            literal(None, type_=sa.Float).label("b"),
             PredictionMarketGroup.featured.label("featured"),
-            literal(None).label("creator_id"),
-            literal(None).label("market_group_id"),
+            literal(None, type_=sa.Integer).label("creator_id"),
+            literal(None, type_=sa.Integer).label("market_group_id"),
             # all price fields — null for groups
-            literal(None).label("q_yes"),
-            literal(None).label("q_no"),
-            literal(None).label("q_home"),
-            literal(None).label("q_draw"),
-            literal(None).label("q_away"),
-            literal(None).label("fixture_id"),
-            literal(None).label("home_team"),
-            literal(None).label("away_team"),
+            literal(None, type_=sa.Float).label("q_yes"),
+            literal(None, type_=sa.Float).label("q_no"),
+            literal(None, type_=sa.Float).label("q_home"),
+            literal(None, type_=sa.Float).label("q_draw"),
+            literal(None, type_=sa.Float).label("q_away"),
+            literal(None, type_=sa.Integer).label("fixture_id"),
+            literal(None, type_=sa.String).label("home_team"),
+            literal(None, type_=sa.String).label("away_team"),
             PredictionMarketGroup.resolved.label("resolved"),
         ).where(
             PredictionMarketGroup.resolved == False,
