@@ -275,6 +275,7 @@ async def admin_create_group_market(
             q_no=0.0,
             total_collected=0.0,
             house_reserve=reserve, # this amount must be present and the house does not mind losing this money at any point
+            market_group_id=new_group_market.id, 
             )
             
             db.add(new_market)
@@ -314,15 +315,20 @@ async def admin_create_fixture_prediction_market(
             )
 
         new_match_prediction_market = FixtureBasedMarket(
-            fixture_id= payload.fixture_id,
-            question= f"{match.home_team} vs {match.away_team}",
-            description= f"Predict the outcome of {match.home_team} vs {match.away_team}",
-            category= payload.category,
-            b= payload.b,
-            locks_at= locks_at,
-            resolution_date= resolution_date,
-            resolution_source= payload.resolution_source,
-            house_reserve= reserve
+        fixture_id=payload.fixture_id,
+        question=f"{match.home_team} vs {match.away_team}",
+        description=f"Predict the outcome of {match.home_team} vs {match.away_team}",
+        category=payload.category,
+        b=payload.b,
+        locks_at=locks_at,
+        resolution_date=resolution_date,
+        resolution_source=payload.resolution_source,
+        house_reserve=reserve,
+        market_status=(
+            PredictionMarketStatus.active
+            if payload.go_live_immediately
+            else PredictionMarketStatus.pending_approval
+            ),
         )
 
         db.add(new_match_prediction_market)

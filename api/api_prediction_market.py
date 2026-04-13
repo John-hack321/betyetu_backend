@@ -4,7 +4,7 @@ from typing import List
 import sys
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select, func, union_all, literal, text
+from sqlalchemy import select, func, union_all, literal, text, cast, String
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -87,7 +87,7 @@ async def get_all_active_markets(
             PredictionMarket.locks_at.label("locks_at"),
             PredictionMarket.resolution_date.label("resolution_date"),
             PredictionMarket.resolution_source.label("resolution_source"),
-            PredictionMarket.market_status.label("market_status"),
+            cast(PredictionMarket.market_status, String).label("market_status"),
             PredictionMarket.total_collected.label("total_collected"),
             PredictionMarket.house_reserve.label("house_reserve"),
             PredictionMarket.b.label("b"),
@@ -125,7 +125,7 @@ async def get_all_active_markets(
             FixtureBasedMarket.locks_at.label("locks_at"),
             FixtureBasedMarket.resolution_date.label("resolution_date"),
             FixtureBasedMarket.resolution_source.label("resolution_source"),
-            FixtureBasedMarket.market_status.label("market_status"),
+            cast(FixtureBasedMarket.market_status, String).label("market_status"),
             FixtureBasedMarket.total_collected.label("total_collected"),
             FixtureBasedMarket.house_reserve.label("house_reserve"),
             FixtureBasedMarket.b.label("b"),
@@ -164,7 +164,7 @@ async def get_all_active_markets(
             PredictionMarketGroup.locks_at.label("locks_at"),
             PredictionMarketGroup.resolution_date.label("resolution_date"),
             PredictionMarketGroup.resolution_source.label("resolution_source"),
-            literal(None, type_=sa.Enum(PredictionMarketStatus)).label("market_status"),
+            literal(None, type_=sa.String).label("market_status"),
             PredictionMarketGroup.total_collected.label("total_collected"),
             literal(None, type_=sa.Float).label("house_reserve"),
             literal(None, type_=sa.Float).label("b"),
@@ -699,3 +699,4 @@ async def get_my_positions(
     except Exception as e:
         logger.error(f"Get positions error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch positions")
+
