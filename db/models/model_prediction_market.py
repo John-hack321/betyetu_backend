@@ -77,6 +77,7 @@ class PredictionMarket(Base, TimeStamp):
     question = Column(String, nullable=False) # the qn the mkt is about
     description = Column(Text, nullable=True) # a longer descriptoin of the mkt but this is optional.
     category = Column(String, nullable=True) # eg. sports and I think we should make it an enum as early as possible: for now its just a string
+    option = Column(String, nullable=True)
 
     # LMSR state 
     b = Column(Float, nullable=False, default=1000.0) # constrols the volatility of the market, the smaller the b the higher the volatility

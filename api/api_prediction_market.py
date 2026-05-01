@@ -41,9 +41,9 @@ from services.market_Logic.trade_service  import (
 )
 
 
-from db.models.model_match_markets import FixtureBasedMarket
+from db.models.model_match_markets import FixtureBasedMarket, FixtureBasedMarketTrade
 from db.models.model_prediction_market import (
-    PredictionMarket, PredictionMarketGroup, PredictionMarketStatus
+    PredictionMarket, PredictionMarketGroup, PredictionMarketStatus, PredictionMarketGroup
 )
 from db.models.model_fixtures import Fixture
 from services.market_Logic.LMSR_3WAY import get_prices_3
@@ -54,6 +54,54 @@ router = APIRouter(
     prefix="/prediction_markets",
     tags=["prediction_markets"],
 )
+
+@router.get("/recent_activity/{market_id}")
+async def get_recent_trade_activity(db: db_dependancy, user: user_dependancy, market_id: int):
+    """
+    Get recent trade activity for a specific market
+    """
+    try:
+        # Get recent trades for the current user
+        recent_trades = await db.execute(
+            select(
+                PredictionMarketTrade.created_at,
+                PredictionMarketTrade.market_id,
+                PredictionMarketTrade.trade_type,
+                PredictionMarketTrade.side,
+                PredictionMarketTrade.shares,
+                PredictionMarketTrade.kes_amount,
+                PredictionMarketTrade.yes_price_at_trade,
+            )
+            .where(PredictionMarketTrade.market_id == market_id)
+            .order_by(PredictionMarketTrade.created_at.desc())
+            .limit(20)
+        )
+        recent_trades = recent_trades.all()
+        
+        # Convert to dict for JSON serialization
+        recent_trades_dict = []
+        for trade in recent_trades:
+            recent_trades_dict.append({
+                "created_at": trade.created_at,
+                "market_id": trade.market_id,
+                "trade_type": trade.trade_type,
+                "side": trade.side,
+                "shares": trade.shares,
+                "kes_amount": trade.kes_amount,
+                "yes_price_at_trade": trade.yes_price_at_trade,
+            })
+        
+        return {
+            "recent_trades": recent_trades_dict,
+            "count": len(recent_trades_dict)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting recent trade activity: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch recent trade activity"
+        )
 
 
 @router.get("/all_markets")
@@ -218,6 +266,7 @@ async def get_all_active_markets(
                 entry = {
                     "id": sm.id,
                     "question": sm.question,
+                    "option": sm.option,
                     "market_status": sm.market_status.value,
                     "yes_price": round(p_yes, 4),
                     "no_price": round(1.0 - p_yes, 4),
@@ -289,7 +338,7 @@ async def get_all_active_markets(
         raise HTTPException(status_code=500, detail="Failed to fetch markets")
 
 
-
+# this endpoint will be deleted once we have buld all the other parts well by ourselves.
 @router.get("/")
 async def get_active_markets(
     db: db_dependancy,
@@ -367,6 +416,7 @@ async def get_active_markets(
 @router.get("/{market_id}")
 async def get_market_detail(
     market_id: int,
+    market_type: str,
     db: db_dependancy,
     user: user_dependancy,
 ):
@@ -374,37 +424,189 @@ async def get_market_detail(
     Get full detail for one market including price history summary.
     """
     try:
-        market = await db.get(PredictionMarket, market_id)
-        if not market:
-            raise HTTPException(status_code=404, detail="Market not found")
 
-        p_yes = yes_price(market.q_yes, market.q_no, market.b)
+        if market_type == "prediction" :
 
-        # Get trade count for activity indicator
-        trade_count = await db.scalar(
-            select(func.count())
-            .select_from(PredictionMarketTrade)
+            market_data = await db.get(PredictionMarket, market_id)
+            if not market_data:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Market not found")
+
+            price_history = await db.execute(
+            select(
+                PredictionMarketTrade.created_at,
+                PredictionMarketTrade.yes_price_at_trade, # for the chart
+                PredictionMarketTrade.trade_type,
+                PredictionMarketTrade.side,
+            )
             .where(PredictionMarketTrade.market_id == market_id)
-        )
+            .order_by(PredictionMarketTrade.created_at.asc())
+            ) # we wont add a limit we need the full price history for this : we might change later but for now this is enough
+            price_history = price_history.all()
 
-        return {
-            "id": market.id,
-            "question": market.question,
-            "description": market.description,
-            "category": market.category,
-            "market_status": market.market_status.value,
-            "yes_price": round(p_yes, 6),
-            "no_price": round(1.0 - p_yes, 6),
-            "yes_shares_issued": market.q_yes,
-            "no_shares_issued": market.q_no,
-            "total_collected": market.total_collected,
-            "trade_count": trade_count,
-            "locks_at": market.locks_at,
-            "resolution_date": market.resolution_date,
-            "resolution_source": market.resolution_source,
-            "outcome": market.outcome.value if market.outcome else None,
-            "outcome_notes": market.outcome_notes,
-        }
+            # Convert SQLAlchemy model to dictionary for JSON serialization
+            # we only return what we need to the frontend
+
+            p_yes = yes_price(market_data.q_yes, market_data.q_no, market_data.b)
+
+            market_dict = {
+                "type": "prediction",
+                "id": market_data.id,
+                "question": market_data.question,
+                "description": market_data.description,
+                "category": market_data.category,
+                "q_yes": market_data.q_yes,
+                "q_no": market_data.q_no,
+                "p_yes": p_yes,
+                "total_collected": market_data.total_collected,
+                "locks_at": market_data.locks_at,
+                "resolution_date": market_data.resolution_date,
+                "resolution_source": market_data.resolution_source,
+                "outcome": market_data.outcome.value if market_data.outcome else None,
+                "outcome_notes": market_data.outcome_notes,
+                "admin_notes": market_data.admin_notes,
+                "featured": market_data.featured,
+                "created_at": market_data.created_at,
+                "updated_at": market_data.updated_at,
+            }
+
+            return {
+                    "market": market_dict,
+                    "price_history": [
+                        {
+                            "created_at": row.created_at,
+                            "yes_price_at_trade": row.yes_price_at_trade,
+                            "trade_type": row.trade_type.value,
+                            "side": row.side.value,
+                        }
+                        for row in price_history
+                    ]
+            }
+
+
+
+        elif market_type == "fixture":
+
+            market_data = await db.get(FixtureBasedMarket, market_id)
+            if not market_data:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Market not found")
+
+            # Get fixture information for team names
+            fixture = await db.execute(
+                select(Fixture).where(Fixture.local_id == market_data.fixture_id)
+            )
+            fixture = fixture.scalar_one_or_none()
+
+            price_history = await db.execute(
+                select(
+                    FixtureBasedMarketTrade.created_at,
+                    FixtureBasedMarketTrade.home_price_at_trade,
+                    FixtureBasedMarketTrade.draw_price_at_trade,
+                    FixtureBasedMarketTrade.away_price_at_trade,
+                    FixtureBasedMarketTrade.trade_type,
+                    FixtureBasedMarketTrade.side,
+                )
+                .where(FixtureBasedMarketTrade.market_id == market_id)
+                .order_by(FixtureBasedMarketTrade.created_at.asc())
+            )
+            price_history = price_history.all()
+
+
+            # Convert SQLAlchemy model to dictionary for JSON serialization
+            market_dict = {
+                "type": "fixture",
+                "id": market_data.id,
+                "fixture_id": market_data.fixture_id,
+                "creator_id": market_data.creator_id,
+                "question": market_data.question,
+                "description": market_data.description,
+                "category": market_data.category,
+                #"b": market_data.b,
+                "q_home": market_data.q_home,
+                "q_draw": market_data.q_draw,
+                "q_away": market_data.q_away,
+                "total_collected": market_data.total_collected,
+                #"house_reserve": market_data.house_reserve,
+                "market_status": market_data.market_status.value,
+                "locks_at": market_data.locks_at,
+                "resolution_date": market_data.resolution_date,
+                "resolution_source": market_data.resolution_source,
+                #"outcome": market_data.outcome.value if market_data.outcome else None,
+                #"outcome_notes": market_data.outcome_notes,
+                #"admin_notes": market_data.admin_notes,
+                "featured": market_data.featured,
+                "created_at": market_data.created_at,
+                #"updated_at": market_data.updated_at,
+                "home_team": fixture.home_team if fixture else None,
+                "away_team": fixture.away_team if fixture else None,
+            }
+
+            return {
+                    "market": market_dict,
+                    "price_history": [
+                        {
+                            "created_at": row.created_at,
+                            "home_price_at_trade": row.home_price_at_trade,
+                            "draw_price_at_trade": row.draw_price_at_trade,
+                            "away_price_at_trade": row.away_price_at_trade,
+                            "trade_type": row.trade_type.value,
+                            "side": row.side.value,
+                        }
+                        for row in price_history
+                    ]
+            }
+
+        elif market_type == "group":
+            
+            group_market = await db.execute(
+                select(PredictionMarketGroup).where(PredictionMarketGroup.id == market_id)
+            )
+            group_market = group_market.scalar_one_or_none()
+            
+            if not group_market:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Market not found")
+
+            # for each submarket in gropu mkt we are going to get the price history and a few relevant data too.
+            print("now running the sub markets fetch query ")
+            sub_markets = await db.execute(
+                select(PredictionMarket).where(PredictionMarket.market_group_id == market_id)
+            )
+            sub_markets = sub_markets.scalars().all()
+
+            print(f"sub markets gottne are : {sub_markets}")
+
+            sub_markets_list = []
+            
+            # for each submarket get the price history
+            for sub_market in sub_markets:
+                price_history = await db.execute(
+                    select(PredictionMarketTrade).where(PredictionMarketTrade.market_id == sub_market.id)
+                )
+                price_history = price_history.scalars().all()
+
+                sub_markets_list.append({
+                    "market": sub_market,
+                    "price_history": price_history
+                })
+                
+            return {
+                "group_market": group_market,
+                "sub_markets": sub_markets_list
+            }
+
+            
+
+        # market = await db.get(PredictionMarket, market_id)
+        # if not market:
+        #     raise HTTPException(status_code=404, detail="Market not found")
+
+        # p_yes = yes_price(market.q_yes, market.q_no, market.b)
+
+        # # Get trade count for activity indicator
+        # trade_count = await db.scalar(
+        #     select(func.count())
+        #     .select_from(PredictionMarketTrade)
+        #     .where(PredictionMarketTrade.market_id == market_id)
+        # )
 
     except HTTPException:
         raise

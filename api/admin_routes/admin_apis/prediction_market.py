@@ -1,3 +1,4 @@
+import datetime
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
@@ -260,6 +261,7 @@ async def admin_create_group_market(
             new_market = PredictionMarket(
             creator_id=None, # since it is created by the admin
             question= f"{payload.group_market_question} : => {bn_option}",
+            option=bn_option,
             description=payload.group_market_description,
             category=payload.category,
             resolution_source=payload.resolution_source,
@@ -302,8 +304,9 @@ async def admin_create_fixture_prediction_market(
     payload: AdminCreateFixturePredictionMarket
 ):
     try:
-        locks_at = payload.locks_at.replace(tzinfo=None) if payload.locks_at else None
-        resolution_date = payload.resolution_date.replace(tzinfo=None) if payload.resolution_date else None
+        # locks_at = payload.locks_at.replace(tzinfo=None) if payload.locks_at else None
+        # # we do this to the resolution so that it beomes around the estimated end time
+        # resolution_date = (payload.resolution_date.replace(tzinfo=None) if payload.resolution_date else None) + datetime.timedelta(hours=2)
         reserve = payload.b * _math.log(3) # three way 
         
         match_data = await db.execute(select(Fixture).where(Fixture.local_id == payload.fixture_id))
@@ -314,6 +317,9 @@ async def admin_create_fixture_prediction_market(
                 detail= "Fixture not found"
             )
 
+        locks_at = match_data.match_date + datetime.timedelta(hours=2) # for now the locking time is at the predicted 2 hours from match start time
+        resolution_date = match_data.match_date + datetime.timedelta(hours=2) # TODO : Find a way to hanlde these timing for match prediction markets
+
         new_match_prediction_market = FixtureBasedMarket(
         fixture_id=payload.fixture_id,
         question=f"{match.home_team} vs {match.away_team}",
@@ -321,7 +327,7 @@ async def admin_create_fixture_prediction_market(
         category=payload.category,
         b=payload.b,
         locks_at=locks_at,
-        resolution_date=resolution_date,
+        resolution_date=resolution_date, # make this
         resolution_source=payload.resolution_source,
         house_reserve=reserve,
         market_status=(
