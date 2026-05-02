@@ -538,6 +538,8 @@ async def get_market_detail(
                 #"updated_at": market_data.updated_at,
                 "home_team": fixture.home_team if fixture else None,
                 "away_team": fixture.away_team if fixture else None,
+                "home_score": fixture.home_score if fixture else None,
+                "away_score": fixture.away_score if fixture else None,
             }
 
             return {
@@ -572,7 +574,7 @@ async def get_market_detail(
             )
             sub_markets = sub_markets.scalars().all()
 
-            print(f"sub markets gottne are : {sub_markets}")
+            print(f"sub markets gotten are : {sub_markets}")
 
             sub_markets_list = []
             
@@ -589,7 +591,7 @@ async def get_market_detail(
                 })
                 
             return {
-                "group_market": group_market,
+                "market": group_market,
                 "sub_markets": sub_markets_list
             }
 
