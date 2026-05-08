@@ -467,6 +467,7 @@ async def get_market_detail(
                 "featured": market_data.featured,
                 "created_at": market_data.created_at,
                 "updated_at": market_data.updated_at,
+                "resolution_criteria" : market_data.resolution_criteria,
             }
 
             return {
@@ -564,10 +565,10 @@ async def get_market_detail(
             )
             group_market = group_market.scalar_one_or_none()
             
-            if not group_market:
+            if not group_market:  
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Market not found")
 
-            # for each submarket in gropu mkt we are going to get the price history and a few relevant data too.
+            # for each submarket in  gropu mkt we are going to get the price history and a few relevant data too.
             print("now running the sub markets fetch query ")
             sub_markets = await db.execute(
                 select(PredictionMarket).where(PredictionMarket.market_group_id == market_id)
@@ -585,6 +586,9 @@ async def get_market_detail(
                 )
                 price_history = price_history.scalars().all()
 
+                # Calculate p_yes using the yes_price function and add it as a field to the sub_market object
+                sub_market.p_yes = yes_price(sub_market.q_yes, sub_market.q_no, sub_market.b)
+                
                 sub_markets_list.append({
                     "market": sub_market,
                     "price_history": price_history
