@@ -272,6 +272,7 @@ async def get_all_active_markets(
                     "no_price": round(1.0 - p_yes, 4),
                     "total_collected": sm.total_collected,
                     "locks_at": sm.locks_at,
+                    "category": sm.category,
                 }
                 sub_markets_by_group.setdefault(sm.market_group_id, []).append(entry)
 
@@ -908,3 +909,22 @@ async def get_my_positions(
         logger.error(f"Get positions error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch positions")
 
+
+@router.post("/buy_shares_of_x_amount")
+async def buy_shares_of_x_amount(
+    market_id: int,
+    amount: float,
+    side: PredictionMarketOutcome,
+    db: db_dependancy,
+    user: user_dependancy,
+):
+    """
+    Buy shares of a market.
+    """
+    try:
+        pass
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Buy shares error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to buy shares")
