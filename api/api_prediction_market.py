@@ -974,3 +974,44 @@ async def buy_shares_of_x_amount(
     except Exception as e:
         logger.error(f"Buy by amount error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to buy shares")
+
+# also add side so that we can get based on side too , since si the sides are differnet you can hold a position both no sell and buys side right ? 
+@router.get("/user_position_for_market/{market_id}/{side}")
+async def user_position_for_market(
+    market_id: int,
+    side: str,
+    db: db_dependancy,
+    user: user_dependancy,
+):
+    """
+    Get the user's position for a specific market.
+    """
+    try:
+        print("payload ariving is : ", market_id, side)
+
+        # Validate and convert string to enum for proper database comparison
+        if side.lower() not in ["yes", "no"]:
+            raise HTTPException(status_code=400, detail="Side must be 'yes' or 'no'")
+        
+        side_enum = PredictionMarketOutcome(side.lower())
+        
+        position = await db.execute(
+            select(PredictionMarketPosition)
+            .where(
+                PredictionMarketPosition.user_id == user.get("user_id"),
+                PredictionMarketPosition.market_id == market_id,
+                PredictionMarketPosition.side == side_enum,
+            )
+        )
+        position = position.scalar_one_or_none()
+        
+        if not position:
+            raise HTTPException(status_code=404, detail="Position not found")
+        
+        return position
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get position error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch position")
