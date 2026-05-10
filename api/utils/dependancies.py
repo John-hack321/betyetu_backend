@@ -8,7 +8,7 @@ from jose import jwt , JWTError
 from dotenv import load_dotenv
 import os
 
-from db.db_setup import get_db
+from db.db_setup import get_db, get_transactional_db
 
 load_dotenv()
 SECRET_KEY = os.getenv('AUTH_SECRET_KEY')
@@ -26,6 +26,7 @@ ADMIN_REFRESH_ALGORITHM= os.getenv('ADMIN_REFRESH_ALGORITHM')
 # these i think Im made to believe that they are important lines when it comes to the auth things in fastapi 
 
 db_dependancy = Annotated[ Session , Depends(get_db)] # this is just similar to doing : db : Session = Depends(get_db) what this does is that it gives a shortcut for injecting a database sessoin : i guess into our utility functions 
+db_transactional_dependancy = Annotated[ Session , Depends(get_transactional_db)] # for services that need atomic transactions 
 bcrypt_context = CryptContext( schemes = ['bcrypt'] , deprecated = 'auto') # this is like our password fortress it allows us to hash and verify plain text agains hashed passwords 
 oauth2_bearer = OAuth2PasswordBearer( tokenUrl = "/auth/token") # tells fastapi where to extrect the token 
 oauth2_bearer_dependancy = Annotated[str , Depends(oauth2_bearer)]

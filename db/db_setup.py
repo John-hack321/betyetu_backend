@@ -21,7 +21,8 @@ Base = declarative_base()
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    Dependency function that yields db sessions
+    Dependency function that yields db sessions with auto-commit
+    Used for simple operations that don't need atomic transactions
     """
 
     session = AsyncSessionLocal()
@@ -29,6 +30,21 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
         await session.commit()
 
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+
+async def get_transactional_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency function that yields db sessions without auto-commit
+    Used for services that manage their own atomic transactions with 'async with db.begin()'
+    """
+
+    session = AsyncSessionLocal()
+    try:
+        yield session
     except Exception:
         await session.rollback()
         raise
