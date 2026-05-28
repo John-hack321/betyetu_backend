@@ -85,12 +85,18 @@ async def get_all_fixtures_from_db(db : AsyncSession , userId: int, limit : int=
     result= await db.execute(query)
     rows= result.all()    
 
+    # debug log
+    print("now printing the fixutres gottne back from the db")
+    for row in rows:
+        print(row)
+    print("the print is done: if no have been then something is wrong")
+
     if not rows:
         logger.error('an unexpected error occured : no fixtures found in the get all fixtures from db')
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR ,
-            detail= "no fixtures found in the get_all_fixtures_from_db utility functoin "
+            detail= "no fixtures found in the get_all_fixtures_from_db utility function"
         )
     
     fixtures = await convert_fixtures_result_object_from_to_db_desired_return_object(rows)

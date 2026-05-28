@@ -912,8 +912,7 @@ async def get_my_positions(
         logger.error(f"Get positions error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch positions")
 
-
-@router.post("/buy_shares_of_x_amount") # I think this name will make more sence if say share_worth_x_amount
+@router.post("/buy_shares_of_x_amount")
 async def buy_shares_of_x_amount(
     market_id: int,
     amount: float,
@@ -923,49 +922,26 @@ async def buy_shares_of_x_amount(
 ):
     """
     Buy shares worth exactly `amount` KES on the given side.
-    Internally converts the KES budget to a share count using binary search,
-    then delegates to process_buy.
+
+    IMPORTANT: Do NOT touch `db` before calling process_buy.
+    process_buy opens its own `async with db.begin()` block. Any prior DB
+    access — even a read like db.get() — starts a lazy transaction on the
+    session, causing SQLAlchemy to raise:
+        "A transaction is already begun on this Session."
+    All DB work (market lookup, status check, share calculation) is now
+    done inside process_buy under the same atomic transaction.
     """
     try:
-
-        print("payload has arrived as : ", market_id, amount, side)
         if amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be positive")
-
-        market = await db.get(PredictionMarket, market_id)
-        if not market:
-            raise HTTPException(status_code=404, detail="Market not found")
-
-        print("Market status:", market.market_status)
-        if market.market_status != PredictionMarketStatus.active:
-            raise HTTPException(
-                status_code=423,
-                detail=f"Market is {market.market_status.value}, trading is closed"
-            )
-
-        # The fee is 2% on top of base cost, so the budget the user sees
-        # is base_cost * 1.02.  We want shares such that base_cost * 1.02 ≈ amount.
-        # shares_for_budget works on base cost, so pass amount / 1.02 as the budget.
-        PLATFORM_FEE = 0.02
-        base_budget = amount / (1 + PLATFORM_FEE)
-
-        shares = shares_for_budget(
-            q_yes=market.q_yes,
-            q_no=market.q_no,
-            b=market.b,
-            budget=base_budget,
-            side=side.value,
-        )
-
-        if shares <= 0:
-            raise HTTPException(status_code=400, detail="Amount too small to purchase any shares")
 
         result = await process_buy(
             db=db,
             market_id=market_id,
             user_id=user.get("user_id"),
             side=side.value,
-            shares=shares,
+            shares=None,       # None signals: derive shares from budget_kes
+            budget_kes=amount,
         )
         return result
 
@@ -975,7 +951,7 @@ async def buy_shares_of_x_amount(
         logger.error(f"Buy by amount error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to buy shares")
 
-# also add side so that we can get based on side too , since si the sides are differnet you can hold a position both no sell and buys side right ? 
+
 @router.get("/user_position_for_market/{market_id}/{side}")
 async def user_position_for_market(
     market_id: int,

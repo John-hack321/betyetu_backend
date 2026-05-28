@@ -23,6 +23,7 @@ from services.market_Logic.LMSR import (
     no_price,
     cost_function,
     max_house_loss,
+    shares_for_budget,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,29 +42,24 @@ async def process_buy(
     db: AsyncSession,
     market_id: int,
     user_id: int,
-    side: str,        # "yes" or "no"
-    shares: float,
-    platform_fee_pct: float = 0.02,   # in future we will try 2% platform cut on buys => for now we just put it at 0.00 as we try to figure out a better pricing of the sytem in order not to disadvantage the user
+    side: str,
+    shares: float | None = None,   # None when called via budget_kes path
+    budget_kes: float | None = None,
+    platform_fee_pct: float = 0.02,
 ) -> dict:
     """
-    Atomically: : NOTE: we need to do this atomic thing on ohter parts of the sytem that handle critical code too .
-    1. Lock the market row (SELECT FOR UPDATE) — no other trade can read q_yes/q_no until we commit.
-    2. Calculate cost using LMSR.
-    3. Deduct cost + fee from user's account (atomically, with balance check).
-    4. Update q_yes or q_no on the market.
-    5. Update (or create) the user's position.
-    6. Write a trade record.
-    7. Commit everything together.
-
-    If any step fails, the whole thing rolls back.
+    Atomically buys shares. Accepts either:
+    - shares: a fixed share count (existing /buy endpoint)
+    - budget_kes: a KES amount to convert to shares inside the transaction
+        (the /buy_shares_of_x_amount endpoint — avoids touching db before begin())
     """
     async with db.begin():
 
-        # Step 1: Lock the market row 
+        # Step 1: Lock the market row
         market = await db.scalar(
             select(PredictionMarket)
             .where(PredictionMarket.id == market_id)
-            .with_for_update() # locks the row and this is very ciritical for us.
+            .with_for_update()
         )
 
         if not market:
@@ -75,27 +71,37 @@ async def process_buy(
                 detail=f"Market is {market.market_status.value}, trading is closed"
             )
 
-        # Step 2: Calculate cost 
-        # This uses the current locked q_yes and q_no values.
-        # No race condition possible because we hold the row lock.
+        # Step 1b: Convert budget → shares if called via buy_shares_of_x_amount
+        if shares is None:
+            if budget_kes is None or budget_kes <= 0:
+                raise HTTPException(status_code=400, detail="Amount must be positive")
+            PLATFORM_FEE = 0.02
+            base_budget = budget_kes / (1 + PLATFORM_FEE)
+            shares = shares_for_budget(
+                q_yes=market.q_yes,
+                q_no=market.q_no,
+                b=market.b,
+                budget=base_budget,
+                side=side,
+            )
+            if shares <= 0:
+                raise HTTPException(status_code=400, detail="Amount too small to purchase any shares")
+
+        # Steps 2–7 remain exactly as before (no changes needed)
         base_cost = cost_to_buy(market.q_yes, market.q_no, market.b, shares, side)
         fee        = base_cost * platform_fee_pct
-        # this toal cost is what we will deduct from the usrs account
-        total_cost = base_cost + fee # just as I said we will decide on the pricin later on.
+        total_cost = base_cost + fee
 
-        # Step 3: Deduct from user account atomic with balance check 
-        # Using a single SQL UPDATE with a WHERE balance >= total_cost.
-        # If balance is insufficient, 0 rows are updated → we detect it.
         result = await db.execute(
             update(Account)
             .where(
                 Account.user_id == user_id,
-                Account.balance >= int(total_cost)   # balance is stored as int KES
+                Account.balance >= int(total_cost)
             )
             .values(balance=Account.balance - int(total_cost))
             .returning(Account.balance)
         )
-        new_balance_row = result.fetchone() # fetches one row of the result possibly the first row of the results
+        new_balance_row = result.fetchone()
 
         if new_balance_row is None:
             raise HTTPException(
@@ -103,42 +109,37 @@ async def process_buy(
                 detail=f"Insufficient balance. This trade costs {total_cost:.2f} KES."
             )
 
-        new_balance = new_balance_row[0] # I belive we should do this to support atomic operatoins and to leave no room for error
+        new_balance = new_balance_row[0]
 
-        # Step 4: Update market state 
         if side == "yes":
             market.q_yes += shares
         else:
             market.q_no += shares
 
-        market.total_collected += base_cost  # we track base cost, not fee
+        market.total_collected += base_cost
 
-        # Step 5: Calculate new prices (after the trade) 
         p_yes_after = yes_price(market.q_yes, market.q_no, market.b)
         p_no_after  = 1.0 - p_yes_after
 
-        # Step 6: Update or create position 
         side_enum = PredictionMarketOutcome.yes if side == "yes" else PredictionMarketOutcome.no
 
-        existing_position = await db.scalar( # we first query to check if the user has an existing position , if so we will update the position othewise we will create a new one
+        existing_position = await db.scalar(
             select(PredictionMarketPosition)
             .where(
                 PredictionMarketPosition.market_id == market_id,
                 PredictionMarketPosition.user_id   == user_id,
                 PredictionMarketPosition.side      == side_enum,
             )
-            .with_for_update() # we lock this row as we do this update
+            .with_for_update()
         )
 
         if existing_position:
-            # Update existing position
             existing_position.shares_held  += shares
-            existing_position.total_cost   += base_cost  # track base cost, not incl fee
+            existing_position.total_cost   += base_cost
             existing_position.average_cost_per_share = (
                 existing_position.total_cost / existing_position.shares_held
             )
         else:
-            # Create new position
             new_position = PredictionMarketPosition(
                 market_id=market_id,
                 user_id=user_id,
@@ -150,23 +151,18 @@ async def process_buy(
             )
             db.add(new_position)
 
-        # Step 7: Write trade record 
         trade = PredictionMarketTrade(
             market_id=market_id,
             user_id=user_id,
             trade_type=PredictionTradeType.buy,
             side=side_enum,
             shares=shares,
-            kes_amount=total_cost,    # what user actually paid (incl fee) : I have mixed feelings about this fee thing but we will look into it
+            kes_amount=total_cost,
             yes_price_at_trade=p_yes_after,
             q_yes_after=market.q_yes,
             q_no_after=market.q_no,
         )
         db.add(trade)
-
-    # db.begin() auto-commits here on exit if no exception was raised.
-    # If any exception was raised above, it auto-rolls back. Nothing partial survives.
-    # so the secret to writing atomic code is using using db.begin()
 
     return {
         "trade_id": trade.id,
@@ -179,7 +175,6 @@ async def process_buy(
         "no_price_after": round(p_no_after, 6),
         "new_account_balance": new_balance,
     }
-
 
 # Sell shares 
 
