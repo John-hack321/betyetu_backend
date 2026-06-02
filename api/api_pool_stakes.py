@@ -1,3 +1,6 @@
+"""
+we are moving away from pool stakes so they will no long be supported in our system for now
+
 from fastapi import APIRouter, HTTPException, status
 
 import logging
@@ -31,9 +34,9 @@ router = APIRouter(
 
 @router.get("/get_all_pool_stakes")
 async def get_all_pool_stakes(db: db_dependancy, user: user_dependancy, page: int= 1, limit: int= 100):
-    """
-    this function returns all the pool stakes in the database
-    """
+     
+    #this function returns all the pool stakes in the database
+    
     try:
         # get all pool stakes from the database
         db_pool_stakes = await db_user_get_all_pool_stakes(db, page, limit)
@@ -53,9 +56,9 @@ async def get_all_pool_stakes(db: db_dependancy, user: user_dependancy, page: in
 
 @router.post('/user_join_pool_stake')
 async def user_join_pool_stake(db: db_dependancy, user: user_dependancy, pool_stake_data: poolStakeJoiningPyalod):
-    """DNS_PROBE_STARTED
-    this function allows a user to join a pool stake
-    """
+    #DNS_PROBE_STARTED
+   #this function allows a user to join a pool stake
+    
     try:
         await check_if_user_balance_is_enough(db, user.get('user_id'), pool_stake_data.userStakeAmount)
         await confirm_if_stake_is_not_locked(db, pool_stake_data.poolStakeId)
@@ -76,3 +79,6 @@ async def user_join_pool_stake(db: db_dependancy, user: user_dependancy, pool_st
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to join pool stake"
         )
+
+        
+"""

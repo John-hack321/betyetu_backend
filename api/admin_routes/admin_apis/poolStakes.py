@@ -1,3 +1,5 @@
+
+"""
 from fastapi import APIRouter, HTTPException, status
 
 from api.admin_routes.util_pool_stakes import db_populate_pool_stakes, db_get_all_pool_stakes
@@ -25,10 +27,10 @@ router = APIRouter(
 
 @router.post("/")
 async def populate_db_with_pool_stake_from_current_stakes(db: db_dependancy, want_to_populate: bool): # add the admin dependancy for secutity too
-    """
-    this function is not that important , well it is now at the time of building but later on I dont think so 
-    it populates the db with automatic system generated pool stakes that are in-house
-    """
+    
+   # this function is not that important , well it is now at the time of building but later on I dont think so 
+   # it populates the db with automatic system generated pool stakes that are in-house
+    
     try :
         # we will use True as the determiner for the endpoint to work
         if not want_to_populate:
@@ -52,9 +54,9 @@ async def populate_db_with_pool_stake_from_current_stakes(db: db_dependancy, wan
 
 @router.get("/admin_get_pool_stakes")
 async def get_pool_stakes(db: db_dependancy, page: int= 1, limit: int= 100):
-    """
-    this function returns all the pool stakes in the database
-    """
+    
+    #this function returns all the pool stakes in the database
+    
     try:
         # get all pool stakes from the database
         db_pool_stakes = await db_get_all_pool_stakes(db, page, limit)
@@ -72,3 +74,4 @@ async def get_pool_stakes(db: db_dependancy, page: int= 1, limit: int= 100):
             detail="Failed to get pool stakes"
         )
 
+"""

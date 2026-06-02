@@ -1,3 +1,4 @@
+"""
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -29,10 +30,10 @@ logging.basicConfig(
 
 async def db_populate_pool_stakes(db: AsyncSession):
     """
-    this is the main functio that does all the fucking
-    it populates the db with the pool stakes.
-    get all matches from the db
-    iterate though the matches creating a poolstake for each
+  #  this is the main functio that does all the fucking
+  #  it populates the db with the pool stakes.
+  #  get all matches from the db
+  #  iterate though the matches creating a poolstake for each
     """
     try:
         query= select(Fixture).where(Fixture.is_played == False)
@@ -69,8 +70,8 @@ async def db_populate_pool_stakes(db: AsyncSession):
 
 async def db_get_all_pool_stakes(db: AsyncSession, page: int= 1, limit: int= 100):
     """
-    this function returns all the pool stakes in the database
-    filters out pool stakes that have passed the cutoff time (2 hours before current time)
+   # this function returns all the pool stakes in the database
+   # filters out pool stakes that have passed the cutoff time (2 hours before current time)
     """
     try:
         # we first need to cound the number of stakes
@@ -109,3 +110,4 @@ async def db_get_all_pool_stakes(db: AsyncSession, page: int= 1, limit: int= 100
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"an error occured while getting all pool stakes : {e}"
         )
+"""

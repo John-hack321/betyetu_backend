@@ -34,5 +34,5 @@ class Fixture(Base, TimeStamp):
     stakes = relationship("Stake", back_populates="match", foreign_keys="[Stake.match_id]")
     season= relationship("Season", back_populates="fixtures", foreign_keys=[season_id])
     unique_stakes = relationship("UniqueStake", back_populates="match", foreign_keys="[UniqueStake.match_id]")
-    pool_stake = relationship("PoolStake", back_populates="match", foreign_keys="[PoolStake.match_id]")
+    #pool_stake = relationship("PoolStake", back_populates="match", foreign_keys="[PoolStake.match_id]")
     fixture_based_market = relationship("FixtureBasedMarket", back_populates="fixture", uselist=False)

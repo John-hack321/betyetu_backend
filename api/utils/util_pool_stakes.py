@@ -1,3 +1,5 @@
+
+"""
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from sqlalchemy.future import select
@@ -20,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 async def db_user_get_all_pool_stakes(db: AsyncSession, page: int= 1, limit: int= 100): # no need to pass user here since it is not being used anywhere
     """
-    this function returns all the pool stakes in the database
-    filters out pool stakes that have passed the cutoff time (2 hours before current time)
+    #this function returns all the pool stakes in the database
+    #filters out pool stakes that have passed the cutoff time (2 hours before current time)
     """
     try:
         # we first need to cound the number of stakes
@@ -144,7 +146,7 @@ async def finaly_proecess_user_pool_stake_join(
 
 async def update_pool_stake_with_new_entry_data(db: AsyncSession, user_pool_joining_payload: poolStakeJoiningPyalod):
     """
-    updtes the specific pool stake model with the relevant data
+    #updtes the specific pool stake model with the relevant data
     """
     try:
         query= select(PoolStake).where(PoolStake.id == user_pool_joining_payload.poolStakeId)
@@ -228,4 +230,8 @@ async def create_new_stake_entry(db: AsyncSession, user_id: int, pool_stake_join
         )
 
 
+
+
 # UTILITY FUNCTIONS
+
+"""

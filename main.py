@@ -27,7 +27,7 @@ from db.models.model_fixtures import Fixture  # FOURTH - depends on Season
 from db.models.model_users import User, Account, Transaction, Admin  # FIFTH
 from db.models.model_stakes import Stake  # LAST - depends on User and Fixture
 from db.models.model_unique_stakes import UniqueStake, UniqueStakeEntry
-from db.models.model_stakes import PoolStake, PoolStakeEntry
+#from db.models.model_stakes import PoolStake, PoolStakeEntry we are dong away with all the poolstake logic from the system now
 from db.models.model_prediction_market import PredictionMarketGroup, PredictionMarket, PredictionMarketPosition, PredictionMarketTrade
 from db.models.model_match_markets import FixtureBasedMarket, FixtureBasedMarketPosition, FixtureBasedMarketTrade
 
@@ -121,7 +121,7 @@ app.include_router(stakes.router)
 app.include_router(seasons.router)
 app.include_router(auth.router)
 app.include_router(users.router)
-app.include_router(admin_pool_stakes.router)
-app.include_router(api_pool_stakes.router)
+#app.include_router(admin_pool_stakes.router)
+#app.include_router(api_pool_stakes.router)
 app.include_router(api_prediction_market.router)
 app.include_router(prediction_market.admin_router)
